@@ -16,12 +16,12 @@
         .form-label { font-weight: 600; color: #495057; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 5px; }
         .btn-primary { background-color: #002b5c; border: none; font-weight: bold; }
         
-        /* Botones de Notificación */
-        .btn-wsp { background-color: #25D366; color: white; border-radius: 8px; border: none; }
+        /* RESTAURACIÓN DE COLORES DE BOTONES */
+        .btn-wsp { background-color: #25D366; color: white; border: none; }
         .btn-wsp:hover { background-color: #128C7E; color: white; }
-        .btn-imei { background-color: #00bcd4; color: white; border-radius: 8px; border: none; }
+        .btn-imei { background-color: #00bcd4; color: white; border: none; }
         .btn-imei:hover { background-color: #0097a7; color: white; }
-        .btn-edit { background-color: #ffc107; color: #000; border-radius: 8px; border: none; }
+        .btn-edit { background-color: #ffc107; color: #000; border: none; }
         
         .table thead { background-color: #002b5c; color: white; }
         .badge-equipo { background-color: #e9ecef; color: #002b5c; border: 1px solid #002b5c; font-weight: bold; }
@@ -161,14 +161,25 @@
             <div class="card p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="text-secondary mb-0">Agenda Nacional Sincronizada</h5>
-                    <button onclick="exportarExcel()" class="btn btn-success btn-sm fw-bold"><i class="bi bi-file-earmark-excel"></i> Excel</button>
+                    <button onclick="exportarExcel()" class="btn btn-success btn-sm fw-bold"><i class="bi bi-file-earmark-excel"></i> Descargar Excel</button>
                 </div>
-                <input type="text" id="filtroTexto" class="form-control mb-3" placeholder="Filtrar por placa, técnico o cliente..." onkeyup="renderizarTabla()">
+
+                <div class="row g-2 mb-3">
+                    <div class="col-md-5">
+                        <input type="text" id="filtroTexto" class="form-control" placeholder="Buscar por placa, técnico o cliente..." onkeyup="renderizarTabla()">
+                    </div>
+                    <div class="col-md-7 d-flex gap-1">
+                        <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('todos')">Todos</button>
+                        <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('hoy')">Hoy</button>
+                        <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('semana')">Semana</button>
+                    </div>
+                </div>
+
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
                         <thead>
                             <tr>
-                                <th>Técnico</th>
+                                <th>Técnico / Ciudad</th>
                                 <th>Servicio / Placa</th>
                                 <th>Horario</th>
                                 <th>Acciones</th>
@@ -185,6 +196,3 @@
 <script src="script.js"></script>
 </body>
 </html>
-
-
-
