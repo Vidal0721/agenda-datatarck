@@ -11,6 +11,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 let servicios = [];
+let filtroTiempoActual = 'todos'; // Variable restaurada
 
 // Manejo de visibilidad de campos "Otro"
 function toggleOtroTecnico() {
@@ -38,6 +39,11 @@ db.ref('servicios').on('value', (snapshot) => {
     servicios = data ? Object.values(data) : [];
     renderizarTabla();
 });
+
+function setFiltroTiempo(periodo) {
+    filtroTiempoActual = periodo;
+    renderizarTabla();
+}
 
 document.getElementById('formServicio').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -70,7 +76,6 @@ document.getElementById('formServicio').addEventListener('submit', function(e) {
         fin: document.getElementById('fin').value
     };
 
-    // Validación de solapamiento (excluyendo el mismo servicio si se está editando)
     const choque = servicios.some(s => {
         if(editId && s.id == editId) return false;
         const sIni = new Date(s.inicio).getTime();
@@ -97,22 +102,39 @@ function renderizarTabla() {
     const busqueda = document.getElementById('filtroTexto').value.toLowerCase();
     tabla.innerHTML = '';
 
+    const ahora = new Date();
+    const hoyStr = ahora.toLocaleDateString('en-CA');
+
     servicios.sort((a,b) => new Date(a.inicio) - new Date(b.inicio)).forEach(s => {
-        if(s.tecnico.toLowerCase().includes(busqueda) || s.placa.toLowerCase().includes(busqueda) || s.cliente.toLowerCase().includes(busqueda)) {
+        const fechaServicio = s.inicio.split('T')[0];
+        
+        // LÓGICA DE FILTRADO RESTAURADA
+        let pasaTiempo = true;
+        if(filtroTiempoActual === 'hoy') pasaTiempo = (fechaServicio === hoyStr);
+        if(filtroTiempoActual === 'semana') {
+            const fSemana = new Date(); fSemana.setDate(ahora.getDate() + 7);
+            pasaTiempo = (new Date(s.inicio) >= ahora && new Date(s.inicio) <= fSemana);
+        }
+
+        const matchBusqueda = s.tecnico.toLowerCase().includes(busqueda) || 
+                            s.cliente.toLowerCase().includes(busqueda) || 
+                            s.placa.toLowerCase().includes(busqueda);
+
+        if(pasaTiempo && matchBusqueda) {
             const msg = encodeURIComponent(`🚨 *DATATRACK: NUEVA TAREA*\n\n👤 *Técnico:* ${s.tecnico}\n🚗 *PLACA:* ${s.placa}\n🛠️ *Equipo:* ${s.equipo}\n📝 *Tarea:* ${s.descripcion}\n📝 *Obs:* ${s.observaciones}\n📍 *Ciudad:* ${s.ubicacion}\n⏰ *Inicio:* ${s.inicio.replace('T', ' ')}\n✍️ *Asigna:* ${s.despachador}`);
             const mailLink = `mailto:${s.email}?subject=Servicio Datatrack: ${s.placa}&body=${msg}`;
 
             tabla.innerHTML += `
                 <tr>
-                    <td><span class="fw-bold">${s.tecnico}</span><br><small>${s.ubicacion}</small></td>
+                    <td><span class="fw-bold">${s.tecnico}</span><br><small class="text-muted">${s.ubicacion}</small></td>
                     <td><span class="badge badge-equipo">${s.equipo}</span> - <span class="text-placa">${s.placa}</span><br><small>${s.descripcion}</small></td>
                     <td><small>${s.inicio.replace('T', ' ')}</small></td>
                     <td>
                         <div class="btn-group gap-1">
                             <a href="https://wa.me/${s.whatsapp}?text=${msg}" target="_blank" class="btn btn-wsp btn-sm" title="Notificar WhatsApp"><i class="bi bi-whatsapp"></i></a>
-                            <a href="${mailLink}" class="btn btn-imei btn-sm" title="Notificar IMEI/Email"><i class="bi bi-envelope-at"></i></a>
-                            <button onclick="prepararEdicion('${s.id}')" class="btn btn-edit btn-sm"><i class="bi bi-pencil-square"></i></button>
-                            <button onclick="eliminar('${s.id}')" class="btn btn-light btn-sm text-danger"><i class="bi bi-trash"></i></button>
+                            <a href="${mailLink}" class="btn btn-imei btn-sm" title="Notificar Email"><i class="bi bi-envelope-at"></i></a>
+                            <button onclick="prepararEdicion('${s.id}')" class="btn btn-edit btn-sm" title="Editar"><i class="bi bi-pencil-square"></i></button>
+                            <button onclick="eliminar('${s.id}')" class="btn btn-light btn-sm text-danger" title="Eliminar"><i class="bi bi-trash"></i></button>
                         </div>
                     </td>
                 </tr>`;
@@ -128,10 +150,9 @@ function prepararEdicion(id) {
     document.getElementById('editId').value = s.id;
     document.getElementById('despachador').value = s.despachador;
     
-    // Lógica para select de técnico
+    // TÉCNICO
     const tSelect = document.getElementById('tecnicoSelect');
-    const opcionesT = Array.from(tSelect.options).map(o => o.value);
-    if(opcionesT.includes(s.tecnico)) {
+    if(Array.from(tSelect.options).some(o => o.value === s.tecnico)) {
         tSelect.value = s.tecnico;
         document.getElementById('otroTecnico').classList.add('d-none');
     } else {
@@ -147,10 +168,9 @@ function prepararEdicion(id) {
     document.getElementById('cliente').value = s.cliente;
     document.getElementById('placa').value = s.placa;
 
-    // Equipo
+    // EQUIPO
     const eSelect = document.getElementById('equipo');
-    const opcionesE = Array.from(eSelect.options).map(o => o.value);
-    if(opcionesE.includes(s.equipo)) {
+    if(Array.from(eSelect.options).some(o => o.value === s.equipo)) {
         eSelect.value = s.equipo;
         document.getElementById('otroEquipo').classList.add('d-none');
     } else {
@@ -159,10 +179,9 @@ function prepararEdicion(id) {
         document.getElementById('otroEquipo').classList.remove('d-none');
     }
 
-    // Tarea
+    // TAREA
     const dSelect = document.getElementById('descripcion');
-    const opcionesD = Array.from(dSelect.options).map(o => o.value);
-    if(opcionesD.includes(s.descripcion)) {
+    if(Array.from(dSelect.options).some(o => o.value === s.descripcion)) {
         dSelect.value = s.descripcion;
         document.getElementById('otraTarea').classList.add('d-none');
     } else {
@@ -175,7 +194,6 @@ function prepararEdicion(id) {
     document.getElementById('inicio').value = s.inicio;
     document.getElementById('fin').value = s.fin;
 
-    // Cambiar estilo visual
     document.getElementById('cardForm').classList.add('editing');
     document.getElementById('formTitle').innerText = "Editando Servicio";
     document.getElementById('btnSubmit').innerText = "ACTUALIZAR CAMBIOS";
@@ -203,3 +221,4 @@ function exportarExcel() {
     XLSX.utils.book_append_sheet(wb, ws, "Agenda");
     XLSX.writeFile(wb, "Agenda_Datatrack.xlsx");
 }
+
