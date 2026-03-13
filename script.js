@@ -23,6 +23,7 @@ document.getElementById('formServicio').addEventListener('submit', function(e) {
         email: document.getElementById('emailTecnico').value,
         despachador: document.getElementById('despachador').value,
         cliente: document.getElementById('cliente').value,
+        placa: document.getElementById('placa').value.toUpperCase(),
         equipo: document.getElementById('equipo').value,
         descripcion: document.getElementById('descripcion').value,
         ubicacion: document.getElementById('ubicacion').value,
@@ -31,14 +32,13 @@ document.getElementById('formServicio').addEventListener('submit', function(e) {
         fin: document.getElementById('fin').value
     };
 
-    // --- VALIDACIÓN DE CRUCE DE HORARIOS ---
     const choque = servicios.some(s => {
         return s.tecnico === nuevo.tecnico && 
                (new Date(nuevo.inicio) < new Date(s.fin) && new Date(nuevo.fin) > new Date(s.inicio));
     });
 
     if (choque) {
-        alert(`❌ ¡CRUCE DETECTADO! El técnico ${nuevo.tecnico} ya tiene una tarea asignada en ese horario.`);
+        alert(`❌ El técnico ${nuevo.tecnico} ya tiene una tarea en ese horario.`);
         return;
     }
 
@@ -47,7 +47,7 @@ document.getElementById('formServicio').addEventListener('submit', function(e) {
     this.reset();
     toggleOtroTecnico();
     renderizarTabla();
-    alert("✅ Servicio registrado correctamente.");
+    alert("✅ Servicio registrado.");
 });
 
 function setFiltroTiempo(periodo) {
@@ -61,34 +61,38 @@ function renderizarTabla() {
     tabla.innerHTML = '';
 
     const ahora = new Date();
-    const hoyStr = ahora.toISOString().split('T')[0];
-    const manana = new Date(); manana.setDate(ahora.getDate() + 1);
-    const mananaStr = manana.toISOString().split('T')[0];
-
+    const hoyStr = ahora.toLocaleDateString('en-CA'); // Formato YYYY-MM-DD
+    
     let contadorHoy = 0;
 
     servicios.sort((a,b) => new Date(a.inicio) - new Date(b.inicio)).forEach(s => {
         const fechaServicio = s.inicio.split('T')[0];
         if(fechaServicio === hoyStr) contadorHoy++;
 
-        // Lógica de Filtros de Tiempo
         let pasaTiempo = true;
         if(filtroTiempoActual === 'hoy') pasaTiempo = (fechaServicio === hoyStr);
-        if(filtroTiempoActual === 'manana') pasaTiempo = (fechaServicio === mananaStr);
+        if(filtroTiempoActual === 'manana') {
+            const m = new Date(); m.setDate(ahora.getDate() + 1);
+            pasaTiempo = (fechaServicio === m.toLocaleDateString('en-CA'));
+        }
         if(filtroTiempoActual === 'semana') {
-            const finSemana = new Date(); finSemana.setDate(ahora.getDate() + 7);
-            pasaTiempo = (new Date(s.inicio) >= ahora && new Date(s.inicio) <= finSemana);
+            const fSemana = new Date(); fSemana.setDate(ahora.getDate() + 7);
+            pasaTiempo = (new Date(s.inicio) >= ahora && new Date(s.inicio) <= fSemana);
         }
 
-        if(pasaTiempo && (s.tecnico.toLowerCase().includes(busqueda) || s.cliente.toLowerCase().includes(busqueda))) {
-            const msgBody = `🚨 *DATATRACK: NUEVA TAREA*\n\n👤 *Técnico:* ${s.tecnico}\n🏢 *Cliente:* ${s.cliente}\n🛠️ *Equipo:* ${s.equipo}\n📝 *Tarea:* ${s.descripcion}\n📍 *Ciudad:* ${s.ubicacion}\n🏠 *Dir:* ${s.direccion}\n⏰ *Horario:* ${s.inicio.replace('T', ' ')}\n✍️ *Asigna:* ${s.despachador}`;
-            const msgWA = encodeURIComponent(msgBody);
-            const msgMail = `mailto:${s.email}?subject=Asignación Datatrack: ${s.cliente}&body=${msgWA}`;
+        const matchBusqueda = s.tecnico.toLowerCase().includes(busqueda) || 
+                            s.cliente.toLowerCase().includes(busqueda) || 
+                            s.placa.toLowerCase().includes(busqueda);
+
+        if(pasaTiempo && matchBusqueda) {
+            const msgText = `🚨 *DATATRACK: NUEVA TAREA*\n\n👤 *Técnico:* ${s.tecnico}\n🏢 *Cliente:* ${s.cliente}\n🚗 *PLACA:* ${s.placa}\n🛠️ *Equipo:* ${s.equipo}\n📝 *Tarea:* ${s.descripcion}\n📍 *Ciudad:* ${s.ubicacion}\n🏠 *Dir:* ${s.direccion}\n⏰ *Horario:* ${s.inicio.replace('T', ' ')}\n✍️ *Asigna:* ${s.despachador}`;
+            const msgWA = encodeURIComponent(msgText);
+            const msgMail = `mailto:${s.email}?subject=Servicio Datatrack: ${s.placa}&body=${msgWA}`;
 
             tabla.innerHTML += `
                 <tr>
-                    <td><span class="fw-bold text-dark">${s.tecnico}</span><br><small class="text-muted">${s.ubicacion}</small></td>
-                    <td><span class="badge badge-equipo mb-1">${s.equipo}</span><br><small>${s.cliente}</small></td>
+                    <td><span class="fw-bold">${s.tecnico}</span><br><small class="text-muted">${s.ubicacion}</small></td>
+                    <td><span class="badge badge-equipo mb-1">${s.equipo}</span> - <span class="text-placa">${s.placa}</span><br><small>${s.cliente}</small></td>
                     <td><small class="fw-bold">${s.inicio.split('T')[0]}</small><br><small>${s.inicio.split('T')[1]}</small></td>
                     <td>
                         <div class="btn-group">
@@ -100,45 +104,36 @@ function renderizarTabla() {
                 </tr>`;
         }
     });
-
     document.getElementById('contadorHoy').innerText = `Servicios para hoy: ${contadorHoy}`;
 }
 
-// --- EXPORTACIÓN A EXCEL (.XLSX) ---
 function exportarExcel() {
-    if (servicios.length === 0) return alert("No hay datos para exportar.");
-
+    if (servicios.length === 0) return alert("No hay datos");
     const datosExcel = servicios.map(s => ({
         "Inicio": s.inicio.replace('T', ' '),
         "Técnico": s.tecnico,
         "Asignado Por": s.despachador,
         "Cliente": s.cliente,
+        "Placa": s.placa,
         "Equipo": s.equipo,
         "Ciudad": s.ubicacion,
         "Dirección": s.direccion,
         "Descripción": s.descripcion,
-        "Tel Técnico": s.whatsapp,
+        "WhatsApp": s.whatsapp,
         "Email": s.email
     }));
-
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(datosExcel);
-    
-    // Auto-ajustar columnas
-    const wscols = [{wch:18}, {wch:20}, {wch:15}, {wch:20}, {wch:10}, {wch:15}, {wch:25}, {wch:35}, {wch:15}, {wch:25}];
-    ws['!cols'] = wscols;
-
-    XLSX.utils.book_append_sheet(wb, ws, "Agenda Datatrack");
+    XLSX.utils.book_append_sheet(wb, ws, "Agenda");
     XLSX.writeFile(wb, `Agenda_Datatrack_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 function eliminarServicio(id) {
-    if(confirm('¿Deseas eliminar este servicio de la agenda?')) {
+    if(confirm('¿Eliminar servicio?')) {
         servicios = servicios.filter(s => s.id !== id);
         localStorage.setItem('servicios_datatrack', JSON.stringify(servicios));
         renderizarTabla();
     }
 }
 
-// Inicializar tabla al cargar
 document.addEventListener('DOMContentLoaded', renderizarTabla);
