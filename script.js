@@ -1,3 +1,4 @@
+// CONFIGURACIÓN FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyAjh_N7X4nBi6GPnWjexgPX2SKZf7PxW-w",
   authDomain: "agenda-datatrack.firebaseapp.com",
@@ -11,9 +12,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 let servicios = [];
-let filtroTiempoActual = 'todos'; // Variable restaurada
+let filtroTiempoActual = 'todos';
 
-// Manejo de visibilidad de campos "Otro"
+// Manejo de visibilidad "Otro"
 function toggleOtroTecnico() {
     const v = document.getElementById('tecnicoSelect').value;
     const i = document.getElementById('otroTecnico');
@@ -45,22 +46,32 @@ function setFiltroTiempo(periodo) {
     renderizarTabla();
 }
 
+// --- SOLAPAMIENTO MATEMÁTICO ---
+function hayChoque(nuevo, editId) {
+    const nIni = new Date(nuevo.inicio).getTime();
+    const nFin = new Date(nuevo.fin).getTime();
+
+    return servicios.some(s => {
+        if (editId && s.id == editId) return false;
+        if (s.tecnico !== nuevo.tecnico) return false;
+
+        const sIni = new Date(s.inicio).getTime();
+        const sFin = new Date(s.fin).getTime();
+
+        return (nIni < sFin && nFin > sIni); // Intersección de intervalos
+    });
+}
+
 document.getElementById('formServicio').addEventListener('submit', function(e) {
     e.preventDefault();
-
     const editId = document.getElementById('editId').value;
-    const tecnicoFinal = document.getElementById('tecnicoSelect').value === 'Otro' 
-        ? document.getElementById('otroTecnico').value : document.getElementById('tecnicoSelect').value;
     
-    const equipoFinal = document.getElementById('equipo').value === 'OTRO' 
-        ? document.getElementById('otroEquipo').value : document.getElementById('equipo').value;
+    const tecnicoFinal = document.getElementById('tecnicoSelect').value === 'Otro' ? document.getElementById('otroTecnico').value : document.getElementById('tecnicoSelect').value;
+    const equipoFinal = document.getElementById('equipo').value === 'OTRO' ? document.getElementById('otroEquipo').value : document.getElementById('equipo').value;
+    const tareaFinal = document.getElementById('descripcion').value === 'OTRO' ? document.getElementById('otraTarea').value : document.getElementById('descripcion').value;
 
-    const tareaFinal = document.getElementById('descripcion').value === 'OTRO' 
-        ? document.getElementById('otraTarea').value : document.getElementById('descripcion').value;
-
-    const nuevoId = editId ? editId : Date.now();
     const nuevo = {
-        id: nuevoId,
+        id: editId ? parseInt(editId) : Date.now(),
         tecnico: tecnicoFinal,
         whatsapp: document.getElementById('telTecnico').value,
         email: document.getElementById('emailTecnico').value,
@@ -76,24 +87,16 @@ document.getElementById('formServicio').addEventListener('submit', function(e) {
         fin: document.getElementById('fin').value
     };
 
-    const choque = servicios.some(s => {
-        if(editId && s.id == editId) return false;
-        const sIni = new Date(s.inicio).getTime();
-        const sFin = new Date(s.fin).getTime();
-        const nIni = new Date(nuevo.inicio).getTime();
-        const nFin = new Date(nuevo.fin).getTime();
-        return s.tecnico === nuevo.tecnico && (nIni < sFin && nFin > sIni);
-    });
-
-    if (choque) {
-        alert(`🚨 ERROR: El técnico ${nuevo.tecnico} ya está ocupado en ese horario.`);
+    if (hayChoque(nuevo, editId)) {
+        alert(`🚨 CHOQUE DE HORARIO: El técnico ${nuevo.tecnico} ya tiene una tarea en ese rango.`);
         return;
     }
 
-    db.ref('servicios/' + nuevoId).set(nuevo).then(() => {
+    db.ref('servicios/' + nuevo.id).set(nuevo).then(() => {
         if(editId) cancelarEdicion();
         this.reset();
-        alert("✅ Guardado correctamente.");
+        toggleOtroTecnico(); toggleOtroEquipo(); toggleOtraTarea();
+        alert("✅ Sincronizado correctamente.");
     });
 });
 
@@ -104,26 +107,30 @@ function renderizarTabla() {
 
     const ahora = new Date();
     const hoyStr = ahora.toLocaleDateString('en-CA');
+    const ayerDate = new Date(); ayerDate.setDate(ahora.getDate() - 1);
+    const ayerStr = ayerDate.toLocaleDateString('en-CA');
 
     servicios.sort((a,b) => new Date(a.inicio) - new Date(b.inicio)).forEach(s => {
-        const fechaServicio = s.inicio.split('T')[0];
+        const fechaS = s.inicio.split('T')[0];
+        const dateS = new Date(s.inicio);
         
-        // LÓGICA DE FILTRADO RESTAURADA
-        let pasaTiempo = true;
-        if(filtroTiempoActual === 'hoy') pasaTiempo = (fechaServicio === hoyStr);
+        // FILTROS TEMPORALES
+        let pasaT = true;
+        if(filtroTiempoActual === 'hoy') pasaT = (fechaS === hoyStr);
+        if(filtroTiempoActual === 'ayer') pasaT = (fechaS === ayerStr);
         if(filtroTiempoActual === 'semana') {
             const fSemana = new Date(); fSemana.setDate(ahora.getDate() + 7);
-            pasaTiempo = (new Date(s.inicio) >= ahora && new Date(s.inicio) <= fSemana);
+            pasaT = (dateS >= ahora && dateS <= fSemana);
+        }
+        if(filtroTiempoActual === 'mes') {
+            pasaT = (dateS.getMonth() === ahora.getMonth() && dateS.getFullYear() === ahora.getFullYear());
         }
 
-        const matchBusqueda = s.tecnico.toLowerCase().includes(busqueda) || 
-                            s.cliente.toLowerCase().includes(busqueda) || 
-                            s.placa.toLowerCase().includes(busqueda);
+        const matchB = s.tecnico.toLowerCase().includes(busqueda) || s.cliente.toLowerCase().includes(busqueda) || s.placa.toLowerCase().includes(busqueda);
 
-        if(pasaTiempo && matchBusqueda) {
+        if(pasaT && matchB) {
             const msg = encodeURIComponent(`🚨 *DATATRACK: NUEVA TAREA*\n\n👤 *Técnico:* ${s.tecnico}\n🚗 *PLACA:* ${s.placa}\n🛠️ *Equipo:* ${s.equipo}\n📝 *Tarea:* ${s.descripcion}\n📝 *Obs:* ${s.observaciones}\n📍 *Ciudad:* ${s.ubicacion}\n⏰ *Inicio:* ${s.inicio.replace('T', ' ')}\n✍️ *Asigna:* ${s.despachador}`);
-            const mailLink = `mailto:${s.email}?subject=Servicio Datatrack: ${s.placa}&body=${msg}`;
-
+            
             tabla.innerHTML += `
                 <tr>
                     <td><span class="fw-bold">${s.tecnico}</span><br><small class="text-muted">${s.ubicacion}</small></td>
@@ -131,35 +138,37 @@ function renderizarTabla() {
                     <td><small>${s.inicio.replace('T', ' ')}</small></td>
                     <td>
                         <div class="btn-group gap-1">
-                            <a href="https://wa.me/${s.whatsapp}?text=${msg}" target="_blank" class="btn btn-wsp btn-sm" title="Notificar WhatsApp"><i class="bi bi-whatsapp"></i></a>
-                            <a href="${mailLink}" class="btn btn-imei btn-sm" title="Notificar Email"><i class="bi bi-envelope-at"></i></a>
-                            <button onclick="prepararEdicion('${s.id}')" class="btn btn-edit btn-sm" title="Editar"><i class="bi bi-pencil-square"></i></button>
-                            <button onclick="eliminar('${s.id}')" class="btn btn-light btn-sm text-danger" title="Eliminar"><i class="bi bi-trash"></i></button>
+                            <a href="https://wa.me/${s.whatsapp}?text=${msg}" target="_blank" class="btn btn-wsp btn-sm"><i class="bi bi-whatsapp"></i></a>
+                            <a href="mailto:${s.email}?body=${msg}" class="btn btn-imei btn-sm"><i class="bi bi-envelope-at"></i></a>
+                            <button onclick="prepararEdicion('${s.id}')" class="btn btn-edit btn-sm"><i class="bi bi-pencil-square"></i></button>
+                            <button onclick="eliminar('${s.id}')" class="btn btn-light btn-sm text-danger"><i class="bi bi-trash"></i></button>
                         </div>
                     </td>
                 </tr>`;
         }
     });
-    document.getElementById('contadorHoy').innerText = `Total Nacional: ${servicios.length}`;
+    document.getElementById('contadorHoy').innerText = `Total: ${servicios.length}`;
 }
 
 function prepararEdicion(id) {
-    const s = servicios.find(item => item.id == id);
+    const s = servicios.find(i => i.id == id);
     if(!s) return;
 
     document.getElementById('editId').value = s.id;
     document.getElementById('despachador').value = s.despachador;
     
-    // TÉCNICO
-    const tSelect = document.getElementById('tecnicoSelect');
-    if(Array.from(tSelect.options).some(o => o.value === s.tecnico)) {
-        tSelect.value = s.tecnico;
-        document.getElementById('otroTecnico').classList.add('d-none');
-    } else {
-        tSelect.value = "Otro";
-        document.getElementById('otroTecnico').value = s.tecnico;
-        document.getElementById('otroTecnico').classList.remove('d-none');
-    }
+    // Validar selects
+    const ts = document.getElementById('tecnicoSelect');
+    if([...ts.options].some(o => o.value === s.tecnico)) { ts.value = s.tecnico; } 
+    else { ts.value = "Otro"; document.getElementById('otroTecnico').value = s.tecnico; }
+    
+    const es = document.getElementById('equipo');
+    if([...es.options].some(o => o.value === s.equipo)) { es.value = s.equipo; } 
+    else { es.value = "OTRO"; document.getElementById('otroEquipo').value = s.equipo; }
+
+    const ds = document.getElementById('descripcion');
+    if([...ds.options].some(o => o.value === s.descripcion)) { ds.value = s.descripcion; } 
+    else { ds.value = "OTRO"; document.getElementById('otraTarea').value = s.descripcion; }
 
     document.getElementById('telTecnico').value = s.whatsapp;
     document.getElementById('emailTecnico').value = s.email;
@@ -167,29 +176,6 @@ function prepararEdicion(id) {
     document.getElementById('direccion').value = s.direccion;
     document.getElementById('cliente').value = s.cliente;
     document.getElementById('placa').value = s.placa;
-
-    // EQUIPO
-    const eSelect = document.getElementById('equipo');
-    if(Array.from(eSelect.options).some(o => o.value === s.equipo)) {
-        eSelect.value = s.equipo;
-        document.getElementById('otroEquipo').classList.add('d-none');
-    } else {
-        eSelect.value = "OTRO";
-        document.getElementById('otroEquipo').value = s.equipo;
-        document.getElementById('otroEquipo').classList.remove('d-none');
-    }
-
-    // TAREA
-    const dSelect = document.getElementById('descripcion');
-    if(Array.from(dSelect.options).some(o => o.value === s.descripcion)) {
-        dSelect.value = s.descripcion;
-        document.getElementById('otraTarea').classList.add('d-none');
-    } else {
-        dSelect.value = "OTRO";
-        document.getElementById('otraTarea').value = s.descripcion;
-        document.getElementById('otraTarea').classList.remove('d-none');
-    }
-
     document.getElementById('observaciones').value = s.observaciones;
     document.getElementById('inicio').value = s.inicio;
     document.getElementById('fin').value = s.fin;
@@ -198,6 +184,7 @@ function prepararEdicion(id) {
     document.getElementById('formTitle').innerText = "Editando Servicio";
     document.getElementById('btnSubmit').innerText = "ACTUALIZAR CAMBIOS";
     document.getElementById('btnCancel').classList.remove('d-none');
+    toggleOtroTecnico(); toggleOtroEquipo(); toggleOtraTarea();
     window.scrollTo(0,0);
 }
 
@@ -212,7 +199,7 @@ function cancelarEdicion() {
 }
 
 function eliminar(id) {
-    if(confirm('¿Eliminar servicio definitivamente?')) db.ref('servicios/' + id).remove();
+    if(confirm('¿Eliminar servicio?')) db.ref('servicios/' + id).remove();
 }
 
 function exportarExcel() {
@@ -221,4 +208,5 @@ function exportarExcel() {
     XLSX.utils.book_append_sheet(wb, ws, "Agenda");
     XLSX.writeFile(wb, "Agenda_Datatrack.xlsx");
 }
+
 
