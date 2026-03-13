@@ -15,8 +15,6 @@
         .form-label { font-weight: 600; color: #495057; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 5px; }
         .btn-primary { background-color: #002b5c; border: none; font-weight: bold; }
         .btn-whatsapp { background-color: #25D366; color: white; border: none; }
-        .btn-whatsapp:hover { background-color: #128C7E; color: white; }
-        .btn-email { background-color: #ea4335; color: white; border: none; }
         .table thead { background-color: #002b5c; color: white; }
         .badge-equipo { background-color: #e9ecef; color: #002b5c; border: 1px solid #002b5c; font-weight: bold; }
         .text-placa { color: #d63384; font-weight: bold; }
@@ -28,7 +26,7 @@
 <nav class="navbar">
     <div class="container d-flex justify-content-between align-items-center">
         <span class="navbar-brand mb-0 h1 text-white">DATATRACK - Operaciones</span>
-        <div id="contadorHoy" class="badge bg-light text-dark p-2 border">Conectando a la nube...</div>
+        <div id="contadorHoy" class="badge bg-light text-dark p-2 border">Sincronizando...</div>
     </div>
 </nav>
 
@@ -59,17 +57,16 @@
                             </select>
                         </div>
                     </div>
-
                     <input type="text" id="otroTecnico" class="form-control mb-3 d-none" placeholder="Nombre completo del técnico">
 
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">WhatsApp (57...)</label>
-                            <input type="tel" id="telTecnico" class="form-control" placeholder="Ej: 573001234567" required>
+                            <input type="tel" id="telTecnico" class="form-control" placeholder="57300..." required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Email Notificación</label>
-                            <input type="email" id="emailTecnico" class="form-control" placeholder="correo@ejemplo.com" required>
+                            <input type="email" id="emailTecnico" class="form-control" required>
                         </div>
                     </div>
 
@@ -95,19 +92,40 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Equipo</label>
-                            <select id="equipo" class="form-select">
+                            <select id="equipo" class="form-select" onchange="toggleOtroEquipo()" required>
                                 <option value="GPS">GPS</option>
+                                <option value="RFID">RFID</option>
+                                <option value="IBUTTON">IBUTTON</option>
+                                <option value="CÁMARA">CÁMARA</option>
                                 <option value="MDVR">MDVR</option>
-                                <option value="Dashcam">Dashcam</option>
-                                <option value="iButton">iButton</option>
-                                <option value="iBeacon">iBeacon</option>
+                                <option value="BOTÓN PÁNICO">BOTÓN PÁNICO</option>
+                                <option value="BUZZER">BUZZER</option>
+                                <option value="SENSOR COMBUSTIBLE">SENSOR COMBUSTIBLE</option>
+                                <option value="SENSOR TEMPERATURA">SENSOR TEMPERATURA</option>
+                                <option value="SENSOR MAGNETICO">SENSOR MAGNETICO</option>
+                                <option value="OTRO">OTRO...</option>
                             </select>
                         </div>
                     </div>
+                    <input type="text" id="otroEquipo" class="form-control mb-3 d-none" placeholder="Especifique el equipo">
 
-                    <div class="mb-3">
-                        <label class="form-label">Descripción del Servicio</label>
-                        <textarea id="descripcion" class="form-control" rows="2" placeholder="Detalles de la tarea..." required></textarea>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Tarea / Descripción</label>
+                            <select id="descripcion" class="form-select" onchange="toggleOtraTarea()" required>
+                                <option value="revisión">Revisión</option>
+                                <option value="desmonte">Desmonte</option>
+                                <option value="instalación inicial">Instalación inicial</option>
+                                <option value="reinstalación">Reinstalación</option>
+                                <option value="cambio">Cambio</option>
+                                <option value="OTRO">OTRO...</option>
+                            </select>
+                            <input type="text" id="otraTarea" class="form-control mt-2 d-none" placeholder="Especifique la tarea">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Observaciones</label>
+                            <input type="text" id="observaciones" class="form-control" placeholder="Notas adicionales">
+                        </div>
                     </div>
 
                     <div class="row mb-4">
@@ -121,7 +139,7 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary w-100 shadow-sm">REGISTRAR Y VALIDAR EN NUBE</button>
+                    <button type="submit" class="btn btn-primary w-100 shadow-sm">REGISTRAR EN NUBE</button>
                 </form>
             </div>
         </div>
@@ -129,30 +147,18 @@
         <div class="col-xl-8 col-lg-7">
             <div class="card p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="text-secondary mb-0">Agenda Nacional Compartida</h5>
-                    <button onclick="exportarExcel()" class="btn btn-success btn-sm fw-bold">📗 Descargar Excel (.xlsx)</button>
+                    <h5 class="text-secondary mb-0">Agenda Nacional Sincronizada</h5>
+                    <button onclick="exportarExcel()" class="btn btn-success btn-sm fw-bold">📗 Excel</button>
                 </div>
-                
-                <div class="row g-2 mb-3">
-                    <div class="col-md-5">
-                        <input type="text" id="filtroTexto" class="form-control" placeholder="Buscar por técnico, cliente o placa..." onkeyup="renderizarTabla()">
-                    </div>
-                    <div class="col-md-7 d-flex gap-1">
-                        <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('todos')">Todos</button>
-                        <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('hoy')">Hoy</button>
-                        <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('manana')">Mañana</button>
-                        <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('semana')">Semana</button>
-                    </div>
-                </div>
-
+                <input type="text" id="filtroTexto" class="form-control mb-3" placeholder="Filtrar por placa, técnico o cliente..." onkeyup="renderizarTabla()">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
                         <thead>
                             <tr>
-                                <th>Técnico / Ciudad</th>
+                                <th>Técnico</th>
                                 <th>Servicio / Placa</th>
                                 <th>Horario</th>
-                                <th>Notificar</th>
+                                <th>Acción</th>
                             </tr>
                         </thead>
                         <tbody id="tablaServicios"></tbody>
@@ -166,5 +172,5 @@
 <script src="script.js"></script>
 </body>
 </html>
-</html>
+
 
