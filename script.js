@@ -1,4 +1,4 @@
-// CONFIGURACIÓN DE TU PROYECTO FIREBASE
+// CONFIGURACIÓN FIREBASE DATATRACK
 const firebaseConfig = {
   apiKey: "AIzaSyAjh_N7X4nBi6GPnWjexgPX2SKZf7PxW-w",
   authDomain: "agenda-datatrack.firebaseapp.com",
@@ -9,33 +9,50 @@ const firebaseConfig = {
   measurementId: "G-9YNWWGVVD6"
 };
 
-// Inicialización
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 let servicios = [];
-let filtroTiempoActual = 'todos';
 
-// Escuchar cambios en tiempo real
+// Funciones para manejar campos "OTRO"
+function toggleOtroTecnico() {
+    const v = document.getElementById('tecnicoSelect').value;
+    const i = document.getElementById('otroTecnico');
+    i.classList.toggle('d-none', v !== 'Otro');
+    i.required = (v === 'Otro');
+}
+
+function toggleOtroEquipo() {
+    const v = document.getElementById('equipo').value;
+    const i = document.getElementById('otroEquipo');
+    i.classList.toggle('d-none', v !== 'OTRO');
+    i.required = (v === 'OTRO');
+}
+
+function toggleOtraTarea() {
+    const v = document.getElementById('descripcion').value;
+    const i = document.getElementById('otraTarea');
+    i.classList.toggle('d-none', v !== 'OTRO');
+    i.required = (v === 'OTRO');
+}
+
+// Sincronización en tiempo real
 db.ref('servicios').on('value', (snapshot) => {
     const data = snapshot.val();
     servicios = data ? Object.values(data) : [];
     renderizarTabla();
 });
 
-function toggleOtroTecnico() {
-    const select = document.getElementById('tecnicoSelect');
-    const inputOtro = document.getElementById('otroTecnico');
-    const isOtro = select.value === 'Otro';
-    inputOtro.classList.toggle('d-none', !isOtro);
-    inputOtro.required = isOtro;
-}
-
 document.getElementById('formServicio').addEventListener('submit', function(e) {
     e.preventDefault();
 
     const tecnicoFinal = document.getElementById('tecnicoSelect').value === 'Otro' 
-        ? document.getElementById('otroTecnico').value 
-        : document.getElementById('tecnicoSelect').value;
+        ? document.getElementById('otroTecnico').value : document.getElementById('tecnicoSelect').value;
+    
+    const equipoFinal = document.getElementById('equipo').value === 'OTRO' 
+        ? document.getElementById('otroEquipo').value : document.getElementById('equipo').value;
+
+    const tareaFinal = document.getElementById('descripcion').value === 'OTRO' 
+        ? document.getElementById('otraTarea').value : document.getElementById('descripcion').value;
 
     const nuevoId = Date.now();
     const nuevo = {
@@ -46,113 +63,70 @@ document.getElementById('formServicio').addEventListener('submit', function(e) {
         despachador: document.getElementById('despachador').value,
         cliente: document.getElementById('cliente').value,
         placa: document.getElementById('placa').value.toUpperCase(),
-        equipo: document.getElementById('equipo').value,
-        descripcion: document.getElementById('descripcion').value,
+        equipo: equipoFinal,
+        descripcion: tareaFinal,
+        observaciones: document.getElementById('observaciones').value || "N/A",
         ubicacion: document.getElementById('ubicacion').value,
         direccion: document.getElementById('direccion').value,
         inicio: document.getElementById('inicio').value,
         fin: document.getElementById('fin').value
     };
 
-    // --- VALIDACIÓN GLOBAL (BLOQUEO DE SOLAPAMIENTOS) ---
+    // --- BLOQUEO DE SOLAPAMIENTO ESTRICTO ---
     const choque = servicios.some(s => {
-        return s.tecnico === nuevo.tecnico && 
-               (new Date(nuevo.inicio) < new Date(s.fin) && new Date(nuevo.fin) > new Date(s.inicio));
+        const sIni = new Date(s.inicio).getTime();
+        const sFin = new Date(s.fin).getTime();
+        const nIni = new Date(nuevo.inicio).getTime();
+        const nFin = new Date(nuevo.fin).getTime();
+        return s.tecnico === nuevo.tecnico && (nIni < sFin && nFin > sIni);
     });
 
     if (choque) {
-        alert(`❌ ¡ERROR DE SOLAPAMIENTO! El técnico ${nuevo.tecnico} ya tiene una tarea asignada en ese horario en la base de datos nacional.`);
+        alert(`🚨 ERROR: El técnico ${nuevo.tecnico} ya tiene una tarea programada en este horario.`);
         return;
     }
 
-    // Guardar en la Nube
     db.ref('servicios/' + nuevoId).set(nuevo);
-    
     this.reset();
-    toggleOtroTecnico();
-    alert("✅ Servicio guardado en la nube y sincronizado.");
+    toggleOtroTecnico(); toggleOtroEquipo(); toggleOtraTarea();
+    alert("✅ Registrado en la base nacional.");
 });
-
-function setFiltroTiempo(periodo) {
-    filtroTiempoActual = periodo;
-    renderizarTabla();
-}
 
 function renderizarTabla() {
     const tabla = document.getElementById('tablaServicios');
     const busqueda = document.getElementById('filtroTexto').value.toLowerCase();
     tabla.innerHTML = '';
 
-    const ahora = new Date();
-    const hoyStr = ahora.toLocaleDateString('en-CA'); 
-    let contadorHoy = 0;
-
     servicios.sort((a,b) => new Date(a.inicio) - new Date(b.inicio)).forEach(s => {
-        const fechaServicio = s.inicio.split('T')[0];
-        if(fechaServicio === hoyStr) contadorHoy++;
-
-        let pasaTiempo = true;
-        if(filtroTiempoActual === 'hoy') pasaTiempo = (fechaServicio === hoyStr);
-        if(filtroTiempoActual === 'manana') {
-            const m = new Date(); m.setDate(ahora.getDate() + 1);
-            pasaTiempo = (fechaServicio === m.toLocaleDateString('en-CA'));
-        }
-        if(filtroTiempoActual === 'semana') {
-            const fSemana = new Date(); fSemana.setDate(ahora.getDate() + 7);
-            pasaTiempo = (new Date(s.inicio) >= ahora && new Date(s.inicio) <= fSemana);
-        }
-
-        const matchBusqueda = s.tecnico.toLowerCase().includes(busqueda) || 
-                            s.cliente.toLowerCase().includes(busqueda) || 
-                            s.placa.toLowerCase().includes(busqueda);
-
-        if(pasaTiempo && matchBusqueda) {
-            const msgText = `🚨 *DATATRACK: NUEVA TAREA*\n\n👤 *Técnico:* ${s.tecnico}\n🏢 *Cliente:* ${s.cliente}\n🚗 *PLACA:* ${s.placa}\n🛠️ *Equipo:* ${s.equipo}\n📝 *Tarea:* ${s.descripcion}\n📍 *Ciudad:* ${s.ubicacion}\n🏠 *Dir:* ${s.direccion}\n⏰ *Horario:* ${s.inicio.replace('T', ' ')}\n✍️ *Asigna:* ${s.despachador}`;
-            const msgWA = encodeURIComponent(msgText);
-            const msgMail = `mailto:${s.email}?subject=Asignación Datatrack: ${s.placa}&body=${msgWA}`;
-
+        if(s.tecnico.toLowerCase().includes(busqueda) || s.placa.toLowerCase().includes(busqueda) || s.cliente.toLowerCase().includes(busqueda)) {
+            const msg = encodeURIComponent(`🚨 *DATATRACK: NUEVA TAREA*\n\n👤 *Técnico:* ${s.tecnico}\n🚗 *PLACA:* ${s.placa}\n🛠️ *Equipo:* ${s.equipo}\n📝 *Tarea:* ${s.descripcion}\n📝 *Obs:* ${s.observaciones}\n📍 *Ciudad:* ${s.ubicacion}\n⏰ *Inicio:* ${s.inicio.replace('T', ' ')}\n✍️ *Asigna:* ${s.despachador}`);
+            
             tabla.innerHTML += `
                 <tr>
-                    <td><span class="fw-bold">${s.tecnico}</span><br><small class="text-muted">${s.ubicacion}</small></td>
-                    <td><span class="badge badge-equipo mb-1">${s.equipo}</span> - <span class="text-placa">${s.placa}</span><br><small>${s.cliente}</small></td>
-                    <td><small class="fw-bold">${s.inicio.split('T')[0]}</small><br><small>${s.inicio.split('T')[1]}</small></td>
+                    <td><span class="fw-bold">${s.tecnico}</span><br><small>${s.ubicacion}</small></td>
+                    <td><span class="badge badge-equipo">${s.equipo}</span> - <span class="text-placa">${s.placa}</span><br><small>${s.descripcion}</small></td>
+                    <td><small>${s.inicio.replace('T', ' ')}</small></td>
                     <td>
                         <div class="btn-group">
-                            <a href="https://wa.me/${s.whatsapp}?text=${msgWA}" target="_blank" class="btn btn-whatsapp btn-sm">WA</a>
-                            <a href="${msgMail}" class="btn btn-email btn-sm">Mail</a>
-                            <button onclick="eliminarServicio(${s.id})" class="btn btn-light btn-sm text-danger">🗑️</button>
+                            <a href="https://wa.me/${s.whatsapp}?text=${msg}" target="_blank" class="btn btn-whatsapp btn-sm">WA</a>
+                            <button onclick="eliminar(${s.id})" class="btn btn-light btn-sm text-danger">🗑️</button>
                         </div>
                     </td>
                 </tr>`;
         }
     });
-    document.getElementById('contadorHoy').innerText = `Servicios hoy (Nacional): ${contadorHoy}`;
+    document.getElementById('contadorHoy').innerText = `Total Nacional: ${servicios.length}`;
+}
+
+function eliminar(id) {
+    if(confirm('¿Eliminar de la nube?')) db.ref('servicios/' + id).remove();
 }
 
 function exportarExcel() {
-    if (servicios.length === 0) return alert("No hay datos");
-    const datosExcel = servicios.map(s => ({
-        "Inicio": s.inicio.replace('T', ' '),
-        "Técnico": s.tecnico,
-        "Asignado Por": s.despachador,
-        "Cliente": s.cliente,
-        "Placa": s.placa,
-        "Equipo": s.equipo,
-        "Ciudad": s.ubicacion,
-        "Dirección": s.direccion,
-        "Descripción": s.descripcion,
-        "WhatsApp": s.whatsapp,
-        "Email": s.email
-    }));
+    const ws = XLSX.utils.json_to_sheet(servicios);
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(datosExcel);
     XLSX.utils.book_append_sheet(wb, ws, "Agenda");
-    XLSX.writeFile(wb, `Reporte_Datatrack_Nacional.xlsx`);
+    XLSX.writeFile(wb, "Agenda_Nacional_Datatrack.xlsx");
 }
 
-function eliminarServicio(id) {
-    if(confirm('¿Deseas eliminar este registro de la base de datos nacional?')) {
-        db.ref('servicios/' + id).remove();
-    }
-}
 
