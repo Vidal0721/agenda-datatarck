@@ -7,17 +7,17 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        body { background-color: #f4f7f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f4f7f9; font-family: 'Segoe UI', sans-serif; }
         .navbar { background: linear-gradient(90deg, #002b5c 0%, #0056b3 100%); color: white; margin-bottom: 30px; padding: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .card { border: none; border-radius: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); }
-        .form-label { font-weight: 600; color: #495057; font-size: 0.8rem; text-uppercase; margin-bottom: 5px; }
-        .btn-primary { background-color: #002b5c; border: none; font-weight: bold; transition: 0.3s; }
-        .btn-primary:hover { background-color: #004085; transform: translateY(-1px); }
+        .form-label { font-weight: 600; color: #495057; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 5px; }
+        .btn-primary { background-color: #002b5c; border: none; font-weight: bold; }
         .btn-whatsapp { background-color: #25D366; color: white; border: none; }
         .btn-whatsapp:hover { background-color: #128C7E; color: white; }
         .btn-email { background-color: #ea4335; color: white; border: none; }
         .table thead { background-color: #002b5c; color: white; }
-        .badge-equipo { background-color: #e9ecef; color: #002b5c; border: 1px solid #002b5c; }
+        .badge-equipo { background-color: #e9ecef; color: #002b5c; border: 1px solid #002b5c; font-weight: bold; }
+        .text-placa { color: #d63384; font-weight: bold; }
         .d-none { display: none !important; }
     </style>
 </head>
@@ -26,7 +26,7 @@
 <nav class="navbar">
     <div class="container d-flex justify-content-between align-items-center">
         <span class="navbar-brand mb-0 h1 text-white">DATATRACK - Operaciones</span>
-        <div id="contadorHoy" class="badge bg-light text-dark p-2">Cargando agenda...</div>
+        <div id="contadorHoy" class="badge bg-light text-dark p-2 border">Cargando...</div>
     </div>
 </nav>
 
@@ -43,6 +43,7 @@
                                 <option value="Gabriel Mercado">Gabriel Mercado</option>
                                 <option value="Ivan Torres">Ivan Torres</option>
                                 <option value="Vidal Zambrano">Vidal Zambrano</option>
+                                <option value="Wendy Prentt">Wendy Prentt</option>
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -72,7 +73,7 @@
 
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">Ciudad / Ubicación</label>
+                            <label class="form-label">Ciudad</label>
                             <input type="text" id="ubicacion" class="form-control" required>
                         </div>
                         <div class="col-md-6">
@@ -82,9 +83,13 @@
                     </div>
 
                     <div class="row mb-3">
-                        <div class="col-md-8">
+                        <div class="col-md-5">
                             <label class="form-label">Cliente</label>
                             <input type="text" id="cliente" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Placa</label>
+                            <input type="text" id="placa" class="form-control" placeholder="ABC-123" required>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Equipo</label>
@@ -122,19 +127,19 @@
         <div class="col-xl-8 col-lg-7">
             <div class="card p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="text-secondary mb-0">Agenda de Servicios Activos</h5>
+                    <h5 class="text-secondary mb-0">Agenda de Servicios</h5>
                     <button onclick="exportarExcel()" class="btn btn-success btn-sm fw-bold">📗 Descargar Excel (.xlsx)</button>
                 </div>
                 
                 <div class="row g-2 mb-3">
                     <div class="col-md-5">
-                        <input type="text" id="filtroTexto" class="form-control" placeholder="Buscar por técnico o cliente..." onkeyup="renderizarTabla()">
+                        <input type="text" id="filtroTexto" class="form-control" placeholder="Buscar por técnico, cliente o placa..." onkeyup="renderizarTabla()">
                     </div>
                     <div class="col-md-7 d-flex gap-1">
                         <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('todos')">Todos</button>
                         <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('hoy')">Hoy</button>
                         <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('manana')">Mañana</button>
-                        <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('semana')">Esta Semana</button>
+                        <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('semana')">Semana</button>
                     </div>
                 </div>
 
@@ -143,7 +148,7 @@
                         <thead>
                             <tr>
                                 <th>Técnico / Ciudad</th>
-                                <th>Cliente / Equipo</th>
+                                <th>Servicio / Placa</th>
                                 <th>Horario</th>
                                 <th>Notificar</th>
                             </tr>
