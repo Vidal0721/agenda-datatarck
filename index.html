@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Datatrack - Gestión Nacional de Servicios</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         body { background-color: #f4f7f9; font-family: 'Segoe UI', sans-serif; }
@@ -26,7 +28,7 @@
 <nav class="navbar">
     <div class="container d-flex justify-content-between align-items-center">
         <span class="navbar-brand mb-0 h1 text-white">DATATRACK - Operaciones</span>
-        <div id="contadorHoy" class="badge bg-light text-dark p-2 border">Cargando...</div>
+        <div id="contadorHoy" class="badge bg-light text-dark p-2 border">Conectando a la nube...</div>
     </div>
 </nav>
 
@@ -119,7 +121,7 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary w-100 shadow-sm">REGISTRAR Y VALIDAR</button>
+                    <button type="submit" class="btn btn-primary w-100 shadow-sm">REGISTRAR Y VALIDAR EN NUBE</button>
                 </form>
             </div>
         </div>
@@ -127,7 +129,7 @@
         <div class="col-xl-8 col-lg-7">
             <div class="card p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="text-secondary mb-0">Agenda de Servicios</h5>
+                    <h5 class="text-secondary mb-0">Agenda Nacional Compartida</h5>
                     <button onclick="exportarExcel()" class="btn btn-success btn-sm fw-bold">📗 Descargar Excel (.xlsx)</button>
                 </div>
                 
@@ -164,3 +166,5 @@
 <script src="script.js"></script>
 </body>
 </html>
+</html>
+
