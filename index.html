@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Datatrack - Gestión Operativa</title>
+    <title>Datatrack - Agenda Nacional</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -16,7 +16,6 @@
         .form-label { font-weight: 600; color: #495057; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px; }
         .btn-primary { background-color: #002b5c; border: none; font-weight: bold; }
         .btn-wsp { background-color: #25D366; color: white; border: none; }
-        .btn-imei { background-color: #00bcd4; color: white; border: none; }
         .text-placa { color: #d63384; font-weight: bold; }
         .editing { border: 2px solid #ffc107 !important; background-color: #fffdec !important; }
         .d-none { display: none !important; }
@@ -24,10 +23,10 @@
 </head>
 <body>
 
-<nav class="navbar text-center">
+<nav class="navbar">
     <div class="container-fluid d-flex justify-content-between">
         <span class="navbar-brand mb-0 h1 text-white">DATATRACK - Gestión de Servicios</span>
-        <div id="contadorHoy" class="badge bg-light text-dark p-2 border">Cargando...</div>
+        <div id="contadorHoy" class="badge bg-light text-dark p-2 border">Conectando...</div>
     </div>
 </nav>
 
@@ -35,7 +34,7 @@
     <div class="row">
         <div class="col-xl-4 col-lg-5">
             <div class="card p-4 mb-4" id="cardForm">
-                <h5 class="text-primary border-bottom pb-2 mb-3" id="formTitle">Asignar Servicio</h5>
+                <h5 class="text-primary border-bottom pb-2 mb-3" id="formTitle">Nueva Asignación</h5>
                 <form id="formServicio">
                     <input type="hidden" id="editId">
                     
@@ -51,7 +50,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Técnico</label>
-                            <select id="tecnicoSelect" class="form-select" required>
+                            <select id="tecnicoSelect" class="form-select" onchange="cargarDatosTecnico()" required>
                                 <option value="">Seleccione...</option>
                                 <option value="Lord Zambrano">Lord Zambrano</option>
                                 <option value="Orlando Lara">Orlando Lara</option>
@@ -61,12 +60,12 @@
                             </select>
                         </div>
                     </div>
-                    <input type="text" id="otroTecnico" class="form-control mb-3 d-none" placeholder="Nombre completo del técnico">
+                    <input type="text" id="otroTecnico" class="form-control mb-3 d-none" placeholder="Nombre completo">
 
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">WhatsApp (57...)</label>
-                            <input type="tel" id="telTecnico" class="form-control" placeholder="573..." required>
+                            <input type="tel" id="telTecnico" class="form-control" placeholder="57300..." required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Email Notificación</label>
@@ -92,7 +91,7 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Cant. Placas</label>
-                            <input type="number" id="cantPlacas" class="form-control" value="1" min="1">
+                            <input type="number" id="cantPlacas" class="form-control" value="1" min="1" oninput="generarCamposPlacas()">
                         </div>
                     </div>
 
@@ -102,7 +101,7 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">Equipo</label>
-                            <select id="equipo" class="form-select" required>
+                            <select id="equipo" class="form-select" onchange="toggleCampoOtro('equipo', 'otroEquipo')" required>
                                 <option value="GPS">GPS</option>
                                 <option value="MDVR">MDVR</option>
                                 <option value="CÁMARA">CÁMARA</option>
@@ -113,7 +112,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Tarea</label>
-                            <select id="descripcion" class="form-select" required>
+                            <select id="descripcion" class="form-select" onchange="toggleCampoOtro('descripcion', 'otraTarea')" required>
                                 <option value="Revisión">Revisión</option>
                                 <option value="Instalación Inicial">Instalación Inicial</option>
                                 <option value="Desmonte">Desmonte</option>
@@ -150,14 +149,14 @@
         <div class="col-xl-8 col-lg-7">
             <div class="card p-4">
                 <div class="d-flex justify-content-between mb-3 align-items-center">
-                    <h5 class="text-secondary mb-0">Agenda Nacional</h5>
-                    <button onclick="exportarExcel()" class="btn btn-success btn-sm fw-bold">Excel</button>
+                    <h5 class="text-secondary mb-0">Agenda Nacional Sincronizada</h5>
+                    <button onclick="exportarExcel()" class="btn btn-success btn-sm fw-bold">Exportar Excel</button>
                 </div>
                 <div class="row g-2 mb-3">
-                    <div class="col-md-4">
-                        <input type="text" id="filtroTexto" class="form-control" placeholder="Buscar..." onkeyup="renderizarTabla()">
+                    <div class="col-md-5">
+                        <input type="text" id="filtroTexto" class="form-control" placeholder="Buscar placa, técnico o cliente..." onkeyup="renderizarTabla()">
                     </div>
-                    <div class="col-md-8 d-flex gap-1">
+                    <div class="col-md-7 d-flex gap-1">
                         <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('todos')">Todos</button>
                         <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('hoy')">Hoy</button>
                         <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('semana')">Semana</button>
@@ -168,7 +167,7 @@
                         <thead class="table-dark">
                             <tr>
                                 <th>Técnico</th>
-                                <th>Detalles / Placas</th>
+                                <th>Servicio / Placa(s)</th>
                                 <th>Horario</th>
                                 <th>Acciones</th>
                             </tr>
