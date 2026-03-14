@@ -11,75 +11,114 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+
+// BASE DE DATOS TÉCNICOS
+const tecnicosDB = {
+    "Lord Zambrano": { tel: "573045846852", mail: "lord.zambrano@datatrack.co" },
+    "Orlando Lara": { tel: "573123476734", mail: "tecnico2@datatrack.co" },
+    "Sebastián León": { tel: "573233669570", mail: "tecnico1@datatrack.co" },
+    "Wilton Posso": { tel: "573004501234", mail: "w.posso@datatrack.co" }
+};
+
 let servicios = [];
 let filtroTiempoActual = 'todos';
 
-// Escucha de datos en tiempo real
-db.ref('servicios').on('value', (snapshot) => {
-    const data = snapshot.val();
-    servicios = data ? Object.values(data) : [];
-    renderizarTabla();
-});
+// CARGA AUTOMÁTICA DE DATOS
+function cargarDatosTecnico() {
+    const tecnico = document.getElementById('tecnicoSelect').value;
+    const inputOtro = document.getElementById('otroTecnico');
+    
+    if (tecnico === "Otro") {
+        inputOtro.classList.remove('d-none');
+        document.getElementById('telTecnico').value = "";
+        document.getElementById('emailTecnico').value = "";
+    } else {
+        inputOtro.classList.add('d-none');
+        if (tecnicosDB[tecnico]) {
+            document.getElementById('telTecnico').value = tecnicosDB[tecnico].tel;
+            document.getElementById('emailTecnico').value = tecnicosDB[tecnico].mail;
+        }
+    }
+}
 
-// Lógica de solapamiento precisa (Margen de 1 min para servicios seguidos)
-function haySolapamiento(nuevo, editId) {
+// GENERAR CAMPOS PARA MÚLTIPLES PLACAS
+function generarCamposPlacas() {
+    const cant = parseInt(document.getElementById('cantPlacas').value) || 1;
+    const container = document.getElementById('contenedorPlacas');
+    container.innerHTML = '';
+    for (let i = 1; i <= cant; i++) {
+        container.innerHTML += `
+            <div class="col-md-6 mb-2">
+                <label class="form-label">Placa ${i}</label>
+                <input type="text" class="form-control placa-input" placeholder="DESCONOCIDA">
+            </div>`;
+    }
+}
+
+// LÓGICA DE SOLAPAMIENTO PRECISA
+function hayChoque(nuevo, editId) {
     const nIni = new Date(nuevo.inicio).getTime();
     const nFin = new Date(nuevo.fin).getTime();
-
-    if (nFin <= nIni) {
-        alert("🚨 ERROR: El fin del servicio no puede ser antes que el inicio.");
-        return true;
-    }
+    if (nFin <= nIni) { alert("🚨 Fin debe ser después del Inicio."); return true; }
 
     return servicios.some(s => {
         if (editId && s.id == editId) return false;
         if (s.tecnico !== nuevo.tecnico) return false;
-
         const sIni = new Date(s.inicio).getTime();
         const sFin = new Date(s.fin).getTime();
-
-        // Permite que uno empiece justo cuando el otro termina (margen de 1000ms)
         return (nIni < sFin - 1000 && nFin > sIni + 1000);
     });
 }
 
+// GUARDAR / ACTUALIZAR
 document.getElementById('formServicio').addEventListener('submit', function(e) {
     e.preventDefault();
     const editId = document.getElementById('editId').value;
     
-    // Captura de valores (incluyendo campos manuales de 'Otro')
-    const tFinal = document.getElementById('tecnicoSelect').value === 'Otro' ? document.getElementById('otroTecnico').value : document.getElementById('tecnicoSelect').value;
-    const eFinal = document.getElementById('equipo').value === 'OTRO' ? document.getElementById('otroEquipo').value : document.getElementById('equipo').value;
-    const dFinal = document.getElementById('descripcion').value === 'OTRO' ? document.getElementById('otraTarea').value : document.getElementById('descripcion').value;
+    // Unir todas las placas
+    const inputsPlacas = document.querySelectorAll('.placa-input');
+    const placasArray = Array.from(inputsPlacas).map(inp => inp.value.trim().toUpperCase() || "DESCONOCIDA");
+    const placasString = placasArray.join(", ");
 
-    const nuevo = {
+    const tecnicoFinal = document.getElementById('tecnicoSelect').value === 'Otro' ? document.getElementById('otroTecnico').value : document.getElementById('tecnicoSelect').value;
+    const equipoFinal = document.getElementById('equipo').value === 'OTRO' ? document.getElementById('otroEquipo').value : document.getElementById('equipo').value;
+    const tareaFinal = document.getElementById('descripcion').value === 'OTRO' ? document.getElementById('otraTarea').value : document.getElementById('descripcion').value;
+
+    const obj = {
         id: editId ? parseInt(editId) : Date.now(),
-        tecnico: tFinal,
+        tecnico: tecnicoFinal,
         whatsapp: document.getElementById('telTecnico').value,
         email: document.getElementById('emailTecnico').value,
         despachador: document.getElementById('despachador').value,
         cliente: document.getElementById('cliente').value,
-        placa: document.getElementById('placa').value.toUpperCase(),
-        equipo: eFinal,
-        descripcion: dFinal,
-        observaciones: document.getElementById('observaciones').value || "Sin observaciones",
+        placa: placasString,
+        equipo: equipoFinal,
+        descripcion: tareaFinal,
+        observaciones: document.getElementById('observaciones').value || "Ninguna",
         ubicacion: document.getElementById('ubicacion').value,
         direccion: document.getElementById('direccion').value,
         inicio: document.getElementById('inicio').value,
-        fin: document.getElementById('fin').value
+        fin: document.getElementById('fin').value,
+        cantVehiculos: placasArray.length
     };
 
-    if (haySolapamiento(nuevo, editId)) {
-        alert(`🚨 ATENCIÓN: El técnico ${nuevo.tecnico} ya tiene un compromiso en este horario.`);
+    if (hayChoque(obj, editId)) {
+        alert("🚨 El técnico ya tiene un servicio asignado en ese horario.");
         return;
     }
 
-    db.ref('servicios/' + nuevo.id).set(nuevo).then(() => {
+    db.ref('servicios/' + obj.id).set(obj).then(() => {
         if(editId) cancelarEdicion();
         this.reset();
-        toggleOtroTecnico(); toggleOtroEquipo(); toggleOtraTarea();
-        alert("✅ Sincronizado con éxito.");
+        generarCamposPlacas();
+        alert("✅ Sincronizado correctamente.");
     });
+});
+
+// RENDERIZAR AGENDA
+db.ref('servicios').on('value', (snapshot) => {
+    servicios = snapshot.val() ? Object.values(snapshot.val()) : [];
+    renderizarTabla();
 });
 
 function renderizarTabla() {
@@ -95,78 +134,80 @@ function renderizarTabla() {
     servicios.sort((a,b) => new Date(a.inicio) - new Date(b.inicio)).forEach(s => {
         const fechaS = s.inicio.split('T')[0];
         const dateS = new Date(s.inicio);
-        
-        // Aplicación de filtros de tiempo
+
         let pasaT = true;
         if(filtroTiempoActual === 'hoy') pasaT = (fechaS === hoyStr);
         if(filtroTiempoActual === 'ayer') pasaT = (fechaS === ayerStr);
         if(filtroTiempoActual === 'semana') {
-            const fSem = new Date(); fSem.setDate(ahora.getDate() + 7);
-            pasaT = (dateS >= ahora && dateS <= fSem);
+            const fS = new Date(); fS.setDate(ahora.getDate() + 7);
+            pasaT = (dateS >= ahora && dateS <= fS);
         }
         if(filtroTiempoActual === 'mes') {
             pasaT = (dateS.getMonth() === ahora.getMonth() && dateS.getFullYear() === ahora.getFullYear());
         }
 
-        const matchB = s.tecnico.toLowerCase().includes(busqueda) || s.cliente.toLowerCase().includes(busqueda) || s.placa.toLowerCase().includes(busqueda);
+        const textoBusqueda = (s.tecnico + s.placa + s.cliente).toLowerCase();
 
-        if(pasaT && matchB) {
-            // MENSAJE DE NOTIFICACIÓN INCLUYENDO OBSERVACIONES
-            const msgBody = `🚨 *DATATRACK: NUEVA TAREA*\n\n👤 *Técnico:* ${s.tecnico}\n🚗 *PLACA:* ${s.placa}\n🛠️ *Equipo:* ${s.equipo}\n📝 *Tarea:* ${s.descripcion}\n📍 *Ciudad:* ${s.ubicacion}\n⏰ *Inicio:* ${s.inicio.replace('T', ' ')}\n⚠️ *OBS:* ${s.observaciones}\n✍️ *Asigna:* ${s.despachador}`;
-            const msgEscaped = encodeURIComponent(msgBody);
+        if(pasaT && textoBusqueda.includes(busqueda)) {
+            // FORMATO DE MENSAJE SOLICITADO
+            const msgBody = `🚨 *DATATRACK: NUEVA ASIGNACIÓN*\n\n` +
+                `🛠️ *Tarea:* ${s.descripcion}\n` +
+                `📍 *Ciudad:* ${s.ubicacion}\n` +
+                `⏰ *Inicio:* ${s.inicio.replace('T', ' ')}\n` +
+                `⚠️ *OBS:* ${s.observaciones}\n` +
+                `✍️ *Asigna:* ${s.despachador}\n` +
+                `🏢 *Cliente:* ${s.cliente}\n` +
+                `🏠 *Direccion/Ref:* ${s.direccion}\n` +
+                `🚗 *Vehículo(s):* ${s.placa}`;
             
+            const msgEsc = encodeURIComponent(msgBody);
+
             tabla.innerHTML += `
                 <tr>
                     <td><span class="fw-bold">${s.tecnico}</span><br><small class="text-muted">${s.ubicacion}</small></td>
-                    <td><span class="badge badge-equipo">${s.equipo}</span> - <span class="text-placa">${s.placa}</span><br><small>${s.descripcion}</small></td>
+                    <td><span class="text-placa">${s.placa}</span><br><small>${s.descripcion}</small></td>
                     <td><small>${s.inicio.replace('T', ' ')}</small></td>
                     <td>
                         <div class="btn-group gap-1">
-                            <a href="https://wa.me/${s.whatsapp}?text=${msgEscaped}" target="_blank" class="btn btn-wsp btn-sm" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>
-                            <a href="mailto:${s.email}?subject=Servicio ${s.placa}&body=${msgEscaped}" class="btn btn-imei btn-sm" title="Email"><i class="bi bi-envelope-at"></i></a>
-                            <button onclick="prepararEdicion('${s.id}')" class="btn btn-edit btn-sm" title="Editar"><i class="bi bi-pencil-square"></i></button>
-                            <button onclick="eliminar('${s.id}')" class="btn btn-light btn-sm text-danger" title="Eliminar"><i class="bi bi-trash"></i></button>
+                            <a href="https://wa.me/${s.whatsapp}?text=${msgEsc}" target="_blank" class="btn btn-wsp btn-sm"><i class="bi bi-whatsapp"></i></a>
+                            <a href="mailto:${s.email}?subject=Servicio ${s.placa}&body=${msgEsc}" class="btn btn-imei btn-sm"><i class="bi bi-envelope-at"></i></a>
+                            <button onclick="prepararEdicion('${s.id}')" class="btn btn-edit btn-sm"><i class="bi bi-pencil-square"></i></button>
+                            <button onclick="eliminar('${s.id}')" class="btn btn-light btn-sm text-danger"><i class="bi bi-trash"></i></button>
                         </div>
                     </td>
                 </tr>`;
         }
     });
-    document.getElementById('contadorHoy').innerText = `Servicios listados: ${servicios.length}`;
+    document.getElementById('contadorHoy').innerText = `Total: ${servicios.length}`;
 }
 
-// Funciones de ayuda UI
-function toggleOtroTecnico() { const v = document.getElementById('tecnicoSelect').value; document.getElementById('otroTecnico').classList.toggle('d-none', v !== 'Otro'); }
-function toggleOtroEquipo() { const v = document.getElementById('equipo').value; document.getElementById('otroEquipo').classList.toggle('d-none', v !== 'OTRO'); }
-function toggleOtraTarea() { const v = document.getElementById('descripcion').value; document.getElementById('otraTarea').classList.toggle('d-none', v !== 'OTRO'); }
-function setFiltroTiempo(p) { filtroTiempoActual = p; renderizarTabla(); }
+// FUNCIONES AUXILIARES
+function setFiltroTiempo(f) { filtroTiempoActual = f; renderizarTabla(); }
+function toggleOtroEquipo() { document.getElementById('otroEquipo').classList.toggle('d-none', document.getElementById('equipo').value !== 'OTRO'); }
+function toggleOtraTarea() { document.getElementById('otraTarea').classList.toggle('d-none', document.getElementById('descripcion').value !== 'OTRO'); }
 
 function prepararEdicion(id) {
     const s = servicios.find(i => i.id == id);
     if(!s) return;
-
     document.getElementById('editId').value = s.id;
-    document.getElementById('despachador').value = s.despachador;
+    document.getElementById('tecnicoSelect').value = Object.keys(tecnicosDB).includes(s.tecnico) ? s.tecnico : "Otro";
+    cargarDatosTecnico();
+    if(document.getElementById('tecnicoSelect').value === "Otro") document.getElementById('otroTecnico').value = s.tecnico;
     
-    // Lógica para marcar selects o campos 'Otro'
-    const ts = document.getElementById('tecnicoSelect');
-    if([...ts.options].some(o => o.value === s.tecnico)) { ts.value = s.tecnico; } 
-    else { ts.value = "Otro"; document.getElementById('otroTecnico').value = s.tecnico; }
+    document.getElementById('cliente').value = s.cliente;
+    document.getElementById('cantPlacas').value = s.cantVehiculos || 1;
+    generarCamposPlacas();
+    const plates = s.placa.split(", ");
+    document.querySelectorAll('.placa-input').forEach((inp, idx) => { if(plates[idx]) inp.value = plates[idx]; });
 
-    document.getElementById('telTecnico').value = s.whatsapp;
-    document.getElementById('emailTecnico').value = s.email;
     document.getElementById('ubicacion').value = s.ubicacion;
     document.getElementById('direccion').value = s.direccion;
-    document.getElementById('cliente').value = s.cliente;
-    document.getElementById('placa').value = s.placa;
-    document.getElementById('observaciones').value = s.observaciones;
     document.getElementById('inicio').value = s.inicio;
     document.getElementById('fin').value = s.fin;
-
+    document.getElementById('observaciones').value = s.observaciones;
     document.getElementById('cardForm').classList.add('editing');
-    document.getElementById('formTitle').innerText = "Editando Servicio";
-    document.getElementById('btnSubmit').innerText = "ACTUALIZAR CAMBIOS";
+    document.getElementById('btnSubmit').innerText = "ACTUALIZAR";
     document.getElementById('btnCancel').classList.remove('d-none');
-    toggleOtroTecnico(); toggleOtroEquipo(); toggleOtraTarea();
     window.scrollTo(0,0);
 }
 
@@ -174,20 +215,17 @@ function cancelarEdicion() {
     document.getElementById('editId').value = "";
     document.getElementById('formServicio').reset();
     document.getElementById('cardForm').classList.remove('editing');
-    document.getElementById('formTitle').innerText = "Nueva Asignación";
     document.getElementById('btnSubmit').innerText = "GUARDAR";
     document.getElementById('btnCancel').classList.add('d-none');
-    toggleOtroTecnico(); toggleOtroEquipo(); toggleOtraTarea();
+    generarCamposPlacas();
 }
 
-function eliminar(id) { if(confirm('¿Seguro que deseas eliminar este servicio?')) db.ref('servicios/' + id).remove(); }
-
+function eliminar(id) { if(confirm('¿Eliminar servicio?')) db.ref('servicios/' + id).remove(); }
 function exportarExcel() {
     const ws = XLSX.utils.json_to_sheet(servicios);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Agenda_Datatrack");
-    XLSX.writeFile(wb, "Agenda_Operativa.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Agenda");
+    XLSX.writeFile(wb, "Agenda_Datatrack.xlsx");
 }
-
 
 
