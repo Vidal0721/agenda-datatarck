@@ -1,4 +1,4 @@
-// CONFIGURACIÓN FIREBASE
+// FIREBASE CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyAjh_N7X4nBi6GPnWjexgPX2SKZf7PxW-w",
   authDomain: "agenda-datatrack.firebaseapp.com",
@@ -10,7 +10,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// BASE DE DATOS TÉCNICOS
 const tecnicosDB = {
     "Lord Zambrano": { tel: "573045846852", mail: "lord.zambrano@datatrack.co" },
     "Orlando Lara": { tel: "573123476734", mail: "tecnico2@datatrack.co" },
@@ -21,21 +20,15 @@ const tecnicosDB = {
 let servicios = [];
 let filtroTiempoActual = 'todos';
 
-// FUNCIONES DE AUTO-RELLENO Y PLACAS
 function cargarDatosTecnico() {
-    const tecnico = document.getElementById('tecnicoSelect').value;
-    const telInput = document.getElementById('telTecnico');
-    const mailInput = document.getElementById('emailTecnico');
-    const inputOtro = document.getElementById('otroTecnico');
-
-    if (tecnico === "Otro") {
-        inputOtro.classList.remove('d-none');
-        telInput.value = ""; mailInput.value = "";
-    } else {
-        inputOtro.classList.add('d-none');
-        if (tecnicosDB[tecnico]) {
-            telInput.value = tecnicosDB[tecnico].tel;
-            mailInput.value = tecnicosDB[tecnico].mail;
+    const t = document.getElementById('tecnicoSelect').value;
+    const inputO = document.getElementById('otroTecnico');
+    if (t === "Otro") { inputO.classList.remove('d-none'); } 
+    else {
+        inputO.classList.add('d-none');
+        if (tecnicosDB[t]) {
+            document.getElementById('telTecnico').value = tecnicosDB[t].tel;
+            document.getElementById('emailTecnico').value = tecnicosDB[t].mail;
         }
     }
 }
@@ -44,41 +37,57 @@ function generarCamposPlacas() {
     const cant = parseInt(document.getElementById('cantPlacas').value) || 1;
     const container = document.getElementById('contenedorPlacas');
     const actuales = Array.from(document.querySelectorAll('.placa-input')).map(i => i.value);
-    
     container.innerHTML = '';
     for (let i = 0; i < cant; i++) {
-        container.innerHTML += `
-            <div class="col-md-6 mb-2">
-                <label class="form-label">Placa ${i+1}</label>
-                <input type="text" class="form-control placa-input" placeholder="DESCONOCIDA" value="${actuales[i] || ''}">
-            </div>`;
+        container.innerHTML += `<div class="col-md-6 mb-2"><input type="text" class="form-control placa-input" placeholder="PLACA ${i+1}" value="${actuales[i] || ''}"></div>`;
     }
 }
 
-function toggleOtro(idS, idI) {
-    document.getElementById(idI).classList.toggle('d-none', document.getElementById(idS).value !== 'OTRO');
+function toggleOtro(s, i) { document.getElementById(i).classList.toggle('d-none', document.getElementById(s).value !== 'OTRO'); }
+
+// FILTROS DE TIEMPO (Lógica Restaurada)
+function setFiltroTiempo(f) { filtroTiempoActual = f; renderizarTabla(); }
+
+function cumpleFiltroTiempo(fechaISO) {
+    if (filtroTiempoActual === 'todos') return true;
+    const fechaS = new Date(fechaISO);
+    const ahora = new Date();
+    const hoyStr = ahora.toLocaleDateString('en-CA');
+    
+    if (filtroTiempoActual === 'hoy') return fechaISO.startsWith(hoyStr);
+    
+    if (filtroTiempoActual === 'ayer') {
+        const ayer = new Date(); ayer.setDate(ahora.getDate() - 1);
+        return fechaISO.startsWith(ayer.toLocaleDateString('en-CA'));
+    }
+    
+    if (filtroTiempoActual === 'semana') {
+        const proxSemana = new Date(); proxSemana.setDate(ahora.getDate() + 7);
+        return fechaS >= ahora && fechaS <= proxSemana;
+    }
+
+    if (filtroTiempoActual === 'mes') {
+        return fechaS.getMonth() === ahora.getMonth() && fechaS.getFullYear() === ahora.getFullYear();
+    }
+    return true;
 }
 
-// GUARDADO
+// GUARDAR
 document.getElementById('formServicio').addEventListener('submit', function(e) {
     e.preventDefault();
     const editId = document.getElementById('editId').value;
-    
     const pArray = Array.from(document.querySelectorAll('.placa-input')).map(i => i.value.trim().toUpperCase() || "DESCONOCIDA");
-    const tecnicoFinal = document.getElementById('tecnicoSelect').value === 'Otro' ? document.getElementById('otroTecnico').value : document.getElementById('tecnicoSelect').value;
-    const equipoFinal = document.getElementById('equipo').value === 'OTRO' ? document.getElementById('otroEquipo').value : document.getElementById('equipo').value;
-    const tareaFinal = document.getElementById('descripcion').value === 'OTRO' ? document.getElementById('otraTarea').value : document.getElementById('descripcion').value;
-
+    
     const obj = {
         id: editId ? parseInt(editId) : Date.now(),
-        tecnico: tecnicoFinal,
+        tecnico: document.getElementById('tecnicoSelect').value === 'Otro' ? document.getElementById('otroTecnico').value : document.getElementById('tecnicoSelect').value,
         whatsapp: document.getElementById('telTecnico').value,
         email: document.getElementById('emailTecnico').value,
         despachador: document.getElementById('despachador').value,
         cliente: document.getElementById('cliente').value,
         placa: pArray.join(", "),
-        equipo: equipoFinal,
-        descripcion: tareaFinal,
+        equipo: document.getElementById('equipo').value === 'OTRO' ? document.getElementById('otroEquipo').value : document.getElementById('equipo').value,
+        descripcion: document.getElementById('descripcion').value === 'OTRO' ? document.getElementById('otraTarea').value : document.getElementById('descripcion').value,
         observaciones: document.getElementById('observaciones').value || "Ninguna",
         ubicacion: document.getElementById('ubicacion').value,
         direccion: document.getElementById('direccion').value,
@@ -92,11 +101,9 @@ document.getElementById('formServicio').addEventListener('submit', function(e) {
         this.reset();
         document.getElementById('cantPlacas').value = 1;
         generarCamposPlacas();
-        alert("✅ Sincronizado en Datatrack Cloud.");
     });
 });
 
-// ESCUCHA FIREBASE
 db.ref('servicios').on('value', (snap) => {
     servicios = snap.val() ? Object.values(snap.val()) : [];
     renderizarTabla();
@@ -108,29 +115,20 @@ function renderizarTabla() {
     tabla.innerHTML = '';
 
     servicios.sort((a,b) => new Date(a.inicio) - new Date(b.inicio)).forEach(s => {
-        if((s.tecnico + s.placa + s.cliente).toLowerCase().includes(busq)) {
+        if((s.tecnico + s.placa + s.cliente).toLowerCase().includes(busq) && cumpleFiltroTiempo(s.inicio)) {
             
-            const msgBody = `🚨 *DATATRACK: NUEVA ASIGNACIÓN*\n\n` +
-                `🛠️ *Tarea:* ${s.descripcion}\n` +
-                `📍 *Ciudad:* ${s.ubicacion}\n` +
-                `⏰ *Inicio:* ${s.inicio.replace('T', ' ')}\n` +
-                `⚠️ *OBS:* ${s.observaciones}\n` +
-                `✍️ *Asigna:* ${s.despachador}\n` +
-                `🏢 *Cliente:* ${s.cliente}\n` +
-                `🏠 *Direccion/Ref:* ${s.direccion}\n` +
-                `🚗 *Vehículo(s):* ${s.placa}`;
-            
-            const msgEsc = encodeURIComponent(msgBody);
+            const msg = `🚨 *DATATRACK: NUEVA ASIGNACIÓN*\n\n🛠️ *Tarea:* ${s.descripcion}\n📍 *Ciudad:* ${s.ubicacion}\n⏰ *Inicio:* ${s.inicio.replace('T', ' ')}\n⚠️ *OBS:* ${s.observaciones}\n✍️ *Asigna:* ${s.despachador}\n🏢 *Cliente:* ${s.cliente}\n🏠 *Dirección:* ${s.direccion}\n🚗 *Placa:* ${s.placa}`;
+            const esc = encodeURIComponent(msg);
 
             tabla.innerHTML += `
                 <tr>
-                    <td><span class="fw-bold">${s.tecnico}</span><br><small class="text-muted">${s.ubicacion}</small></td>
-                    <td><span class="text-placa">${s.placa}</span><br><small>${s.equipo} - ${s.descripcion}</small></td>
+                    <td><span class="fw-bold">${s.tecnico}</span><br><small>${s.ubicacion}</small></td>
+                    <td><span class="text-placa">${s.placa}</span><br><small>${s.equipo}</small></td>
                     <td><small>${s.inicio.replace('T', ' ')}</small></td>
                     <td class="text-center">
                         <div class="btn-group gap-1">
-                            <a href="https://wa.me/${s.whatsapp}?text=${msgEsc}" target="_blank" class="btn btn-wsp btn-sm" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>
-                            <a href="mailto:${s.email}?subject=Servicio ${s.placa}&body=${msgEsc}" class="btn btn-mail btn-sm" title="Email"><i class="bi bi-envelope-at"></i></a>
+                            <a href="https://wa.me/${s.whatsapp}?text=${esc}" target="_blank" class="btn btn-wsp btn-sm"><i class="bi bi-whatsapp"></i></a>
+                            <a href="mailto:${s.email}?subject=Servicio ${s.placa}&body=${esc}" class="btn btn-mail btn-sm"><i class="bi bi-envelope"></i></a>
                             <button onclick="prepararEdicion('${s.id}')" class="btn btn-edit btn-sm"><i class="bi bi-pencil-square"></i></button>
                             <button onclick="eliminar('${s.id}')" class="btn btn-delete btn-sm"><i class="bi bi-trash"></i></button>
                         </div>
@@ -138,10 +136,8 @@ function renderizarTabla() {
                 </tr>`;
         }
     });
-    document.getElementById('contadorHoy').innerText = `Total: ${servicios.length}`;
 }
 
-// AUXILIARES
 function prepararEdicion(id) {
     const s = servicios.find(i => i.id == id);
     if(!s) return;
@@ -161,7 +157,7 @@ function prepararEdicion(id) {
     document.getElementById('fin').value = s.fin;
     document.getElementById('observaciones').value = s.observaciones;
     document.getElementById('cardForm').classList.add('editing');
-    document.getElementById('btnSubmit').innerText = "ACTUALIZAR DATOS";
+    document.getElementById('btnSubmit').innerText = "ACTUALIZAR";
     document.getElementById('btnCancel').classList.remove('d-none');
     window.scrollTo(0,0);
 }
@@ -170,19 +166,17 @@ function cancelarEdicion() {
     document.getElementById('editId').value = "";
     document.getElementById('formServicio').reset();
     document.getElementById('cardForm').classList.remove('editing');
-    document.getElementById('btnSubmit').innerText = "GUARDAR SERVICIO";
+    document.getElementById('btnSubmit').innerText = "GUARDAR";
     document.getElementById('btnCancel').classList.add('d-none');
     generarCamposPlacas();
 }
 
-function eliminar(id) { if(confirm('¿Seguro de eliminar este servicio?')) db.ref('servicios/' + id).remove(); }
-function setFiltroTiempo(f) { filtroTiempoActual = f; renderizarTabla(); }
+function eliminar(id) { if(confirm('¿Eliminar?')) db.ref('servicios/' + id).remove(); }
 function exportarExcel() {
     const ws = XLSX.utils.json_to_sheet(servicios);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Servicios");
-    XLSX.writeFile(wb, "Datatrack_Agenda.xlsx");
+    XLSX.writeFile(wb, "Agenda_Datatrack.xlsx");
 }
 
-// INICIO
 window.onload = generarCamposPlacas;
