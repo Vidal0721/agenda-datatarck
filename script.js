@@ -1,4 +1,4 @@
-// CONFIGURACIÓN FIREBASE
+// 1. CONFIGURACIÓN FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyAjh_N7X4nBi6GPnWjexgPX2SKZf7PxW-w",
   authDomain: "agenda-datatrack.firebaseapp.com",
@@ -11,7 +11,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// BASE DE DATOS DE TÉCNICOS DATATRACK
+// 2. BASE DE DATOS DE TÉCNICOS
 const tecnicosDB = {
     "Lord Zambrano": { tel: "573045846852", mail: "lord.zambrano@datatrack.co" },
     "Orlando Lara": { tel: "573123476734", mail: "tecnico2@datatrack.co" },
@@ -22,27 +22,7 @@ const tecnicosDB = {
 let servicios = [];
 let filtroTiempoActual = 'todos';
 
-// AL CARGAR EL DOCUMENTO
-document.addEventListener('DOMContentLoaded', () => {
-    // 1. Escuchar cambio de técnico para auto-llenado
-    document.getElementById('tecnicoSelect').addEventListener('change', cargarDatosTecnico);
-    
-    // 2. Escuchar cantidad de placas para generar campos
-    document.getElementById('cantPlacas').addEventListener('input', generarCamposPlacas);
-    
-    // 3. Escuchar cambios de "Otros"
-    document.getElementById('equipo').addEventListener('change', () => {
-        document.getElementById('otroEquipo').classList.toggle('d-none', document.getElementById('equipo').value !== 'OTRO');
-    });
-    document.getElementById('descripcion').addEventListener('change', () => {
-        document.getElementById('otraTarea').classList.toggle('d-none', document.getElementById('descripcion').value !== 'OTRO');
-    });
-
-    // Inicializar primera placa
-    generarCamposPlacas();
-});
-
-// FUNCIÓN: AUTO-LLENADO
+// 3. FUNCIONES DE INTERFAZ (CARGA Y PLACAS)
 function cargarDatosTecnico() {
     const tecnico = document.getElementById('tecnicoSelect').value;
     const inputOtro = document.getElementById('otroTecnico');
@@ -58,24 +38,20 @@ function cargarDatosTecnico() {
         if (tecnicosDB[tecnico]) {
             telInput.value = tecnicosDB[tecnico].tel;
             mailInput.value = tecnicosDB[tecnico].mail;
-        } else {
-            telInput.value = "";
-            mailInput.value = "";
         }
     }
 }
 
-// FUNCIÓN: GENERAR CAMPOS DE PLACAS
 function generarCamposPlacas() {
     const cant = parseInt(document.getElementById('cantPlacas').value) || 1;
     const container = document.getElementById('contenedorPlacas');
     
-    // Guardar valores actuales para no borrarlos al escribir el número
-    const valoresActuales = Array.from(document.querySelectorAll('.placa-input')).map(i => i.value);
+    // Guardar lo que ya esté escrito para no borrarlo
+    const actuales = Array.from(document.querySelectorAll('.placa-input')).map(i => i.value);
     
     container.innerHTML = '';
     for (let i = 0; i < cant; i++) {
-        const val = valoresActuales[i] || "";
+        const val = actuales[i] || "";
         container.innerHTML += `
             <div class="col-md-6 mb-2">
                 <label class="form-label">Placa ${i+1}</label>
@@ -84,20 +60,26 @@ function generarCamposPlacas() {
     }
 }
 
-// FUNCIÓN: GUARDAR
+function toggleCampoOtro(idSelect, idInput) {
+    const val = document.getElementById(idSelect).value;
+    document.getElementById(idInput).classList.toggle('d-none', val !== 'OTRO');
+}
+
+// 4. LÓGICA DE GUARDADO
 document.getElementById('formServicio').addEventListener('submit', function(e) {
     e.preventDefault();
     const editId = document.getElementById('editId').value;
     
-    const inputsPlacas = document.querySelectorAll('.placa-input');
-    const placasArray = Array.from(inputsPlacas).map(inp => inp.value.trim().toUpperCase() || "DESCONOCIDA");
+    // Procesar Placas
+    const placasArray = Array.from(document.querySelectorAll('.placa-input'))
+                             .map(inp => inp.value.trim().toUpperCase() || "DESCONOCIDA");
     const placasString = placasArray.join(", ");
 
     const tecnicoFinal = document.getElementById('tecnicoSelect').value === 'Otro' ? document.getElementById('otroTecnico').value : document.getElementById('tecnicoSelect').value;
     const equipoFinal = document.getElementById('equipo').value === 'OTRO' ? document.getElementById('otroEquipo').value : document.getElementById('equipo').value;
     const tareaFinal = document.getElementById('descripcion').value === 'OTRO' ? document.getElementById('otraTarea').value : document.getElementById('descripcion').value;
 
-    const servicio = {
+    const data = {
         id: editId ? parseInt(editId) : Date.now(),
         tecnico: tecnicoFinal,
         whatsapp: document.getElementById('telTecnico').value,
@@ -115,16 +97,16 @@ document.getElementById('formServicio').addEventListener('submit', function(e) {
         cantVehiculos: placasArray.length
     };
 
-    db.ref('servicios/' + servicio.id).set(servicio).then(() => {
+    db.ref('servicios/' + data.id).set(data).then(() => {
         if(editId) cancelarEdicion();
         this.reset();
         document.getElementById('cantPlacas').value = 1;
         generarCamposPlacas();
-        alert("✅ Sincronizado en Firebase.");
+        alert("✅ Sincronizado correctamente");
     });
 });
 
-// ESCUCHA FIREBASE
+// 5. ESCUCHA Y TABLA
 db.ref('servicios').on('value', (snapshot) => {
     servicios = snapshot.val() ? Object.values(snapshot.val()) : [];
     renderizarTabla();
@@ -136,10 +118,10 @@ function renderizarTabla() {
     tabla.innerHTML = '';
 
     servicios.sort((a,b) => new Date(a.inicio) - new Date(b.inicio)).forEach(s => {
-        const matchBusqueda = (s.tecnico + s.placa + s.cliente).toLowerCase().includes(busqueda);
-        
-        if(matchBusqueda) {
-            const msgBody = `🚨 *DATATRACK: NUEVA ASIGNACIÓN*\n\n` +
+        if((s.tecnico + s.placa + s.cliente).toLowerCase().includes(busqueda)) {
+            
+            // MENSAJE WHATSAPP
+            const msg = `🚨 *DATATRACK: NUEVA ASIGNACIÓN*\n\n` +
                 `🛠️ *Tarea:* ${s.descripcion}\n` +
                 `📍 *Ciudad:* ${s.ubicacion}\n` +
                 `⏰ *Inicio:* ${s.inicio.replace('T', ' ')}\n` +
@@ -149,26 +131,27 @@ function renderizarTabla() {
                 `🏠 *Direccion/Ref:* ${s.direccion}\n` +
                 `🚗 *Vehículo(s):* ${s.placa}`;
             
-            const msgEsc = encodeURIComponent(msgBody);
+            const esc = encodeURIComponent(msg);
 
             tabla.innerHTML += `
                 <tr>
-                    <td><span class="fw-bold">${s.tecnico}</span><br><small>${s.ubicacion}</small></td>
-                    <td><span class="text-placa">${s.placa}</span><br><small>${s.equipo} - ${s.descripcion}</small></td>
+                    <td><span class="fw-bold">${s.tecnico}</span></td>
+                    <td><span class="text-placa">${s.placa}</span><br><small>${s.equipo}</small></td>
                     <td><small>${s.inicio.replace('T', ' ')}</small></td>
                     <td>
                         <div class="btn-group gap-1">
-                            <a href="https://wa.me/${s.whatsapp}?text=${msgEsc}" target="_blank" class="btn btn-wsp btn-sm"><i class="bi bi-whatsapp"></i></a>
-                            <button onclick="prepararEdicion('${s.id}')" class="btn btn-edit btn-sm"><i class="bi bi-pencil-square"></i></button>
-                            <button onclick="eliminar('${s.id}')" class="btn btn-light btn-sm text-danger"><i class="bi bi-trash"></i></button>
+                            <a href="https://wa.me/${s.whatsapp}?text=${esc}" target="_blank" class="btn btn-wsp btn-sm"><i class="bi bi-whatsapp"></i></a>
+                            <button onclick="prepararEdicion('${s.id}')" class="btn btn-warning btn-sm"><i class="bi bi-pencil-square"></i></button>
+                            <button onclick="eliminar('${s.id}')" class="btn btn-danger btn-sm"><i class="bi bi-trash"></i></button>
                         </div>
                     </td>
                 </tr>`;
         }
     });
-    document.getElementById('contadorHoy').innerText = `Servicios: ${servicios.length}`;
+    document.getElementById('contadorHoy').innerText = `Total: ${servicios.length}`;
 }
 
+// 6. EDICIÓN Y AUXILIARES
 function prepararEdicion(id) {
     const s = servicios.find(i => i.id == id);
     if(!s) return;
@@ -184,10 +167,8 @@ function prepararEdicion(id) {
     document.getElementById('cantPlacas').value = s.cantVehiculos || 1;
     generarCamposPlacas();
     
-    const placasIndividuales = s.placa.split(", ");
-    document.querySelectorAll('.placa-input').forEach((inp, i) => {
-        if(placasIndividuales[i]) inp.value = placasIndividuales[i];
-    });
+    const plates = s.placa.split(", ");
+    document.querySelectorAll('.placa-input').forEach((inp, i) => { if(plates[i]) inp.value = plates[i]; });
 
     document.getElementById('ubicacion').value = s.ubicacion;
     document.getElementById('direccion').value = s.direccion;
@@ -205,7 +186,6 @@ function cancelarEdicion() {
     document.getElementById('editId').value = "";
     document.getElementById('formServicio').reset();
     document.getElementById('cardForm').classList.remove('editing');
-    document.getElementById('btnSubmit').innerText = "GUARDAR";
     document.getElementById('btnCancel').classList.add('d-none');
     generarCamposPlacas();
 }
@@ -218,3 +198,6 @@ function exportarExcel() {
     XLSX.utils.book_append_sheet(wb, ws, "Servicios");
     XLSX.writeFile(wb, "Datatrack_Agenda.xlsx");
 }
+
+// Inicialización de la primera placa
+window.onload = generarCamposPlacas;
