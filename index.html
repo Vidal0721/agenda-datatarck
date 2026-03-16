@@ -20,7 +20,6 @@
         .card { border-radius: 15px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
         .form-label { font-size: 0.7rem; font-weight: bold; text-transform: uppercase; color: #64748b; margin-bottom: 2px; }
         .text-placa { color: #d63384; font-weight: bold; font-family: monospace; }
-        /* Roles */
         .modo-tecnico .solo-admin { display: none !important; }
     </style>
 </head>
@@ -28,26 +27,26 @@
 
 <div id="loginScreen">
     <div class="login-card text-center shadow-lg">
-        <i class="bi bi-shield-lock-fill text-primary" style="font-size: 3.5rem;"></i>
-        <h4 class="fw-bold mt-3 mb-4">Panel Datatrack</h4>
+        <i class="bi bi-truck-flatbed text-primary" style="font-size: 3.5rem;"></i>
+        <h4 class="fw-bold mt-3 mb-4">Panel de Control</h4>
         <input type="email" id="userEmail" class="form-control mb-2" placeholder="Correo corporativo">
         <input type="password" id="userPass" class="form-control mb-3" placeholder="Contraseña">
-        <button class="btn btn-primary w-100 mb-3 py-2 fw-bold" onclick="login()">ENTRAR COMO DESPACHADOR</button>
-        <button class="btn btn-outline-secondary w-100" onclick="accesoTecnico()">ACCESO TÉCNICO (SÓLO VISTA)</button>
+        <button class="btn btn-primary w-100 mb-3 py-2 fw-bold" onclick="login()">Entrar como Despachador</button>
+        <button class="btn btn-outline-secondary w-100" onclick="accesoTecnico()">Acceso Visual Técnico</button>
     </div>
 </div>
 
 <div id="appContent" class="hidden">
     <nav class="navbar p-3 d-flex justify-content-between align-items-center mb-4">
-        <span class="fw-bold"><i class="bi bi-activity"></i> DATATRACK OPERACIONES | <small id="txtRol" class="text-info"></small></span>
+        <span class="fw-bold">DATATRACK | <small id="txtRol" class="text-info"></small></span>
         <button class="btn btn-sm btn-outline-light" onclick="logout()">Cerrar Sesión</button>
     </nav>
     
     <div class="container-fluid px-4">
         <div class="row">
             <div id="colForm" class="col-xl-4 col-lg-5 mb-4 solo-admin">
-                <div class="card p-4">
-                    <h5 class="text-primary mb-3 border-bottom pb-2">Programar Servicio</h5>
+                <div class="card p-4 shadow">
+                    <h5 class="text-primary mb-3 border-bottom pb-2">Asignar Servicio</h5>
                     <form id="formServicio" class="row g-2">
                         <input type="hidden" id="editId">
                         <div class="col-6">
@@ -64,19 +63,16 @@
                                 <option value="Lord Zambrano">Lord Zambrano</option>
                                 <option value="Wilton Posso">Wilton Posso</option>
                                 <option value="Orlando Lara">Orlando Lara</option>
+                                <option value="Nilson Payares">Nilson Payares</option>
                             </select>
                         </div>
                         <div class="col-6">
-                            <label class="form-label">WhatsApp</label>
-                            <input type="text" id="wsp" class="form-control form-control-sm">
+                            <label class="form-label">WhatsApp (57...)</label>
+                            <input type="text" id="wsp" class="form-control form-control-sm" placeholder="573...">
                         </div>
                         <div class="col-6">
-                            <label class="form-label">Email Notif.</label>
-                            <input type="email" id="emailNotif" class="form-control form-control-sm">
-                        </div>
-                        <div class="col-12 text-dark">
-                            <label class="form-label">Cliente</label>
-                            <input type="text" id="cliente" class="form-control form-control-sm" required>
+                            <label class="form-label">Email Notificación</label>
+                            <input type="email" id="emailNotif" class="form-control form-control-sm" placeholder="correo@datatrack.co">
                         </div>
                         <div class="col-6">
                             <label class="form-label">Ciudad</label>
@@ -85,6 +81,14 @@
                         <div class="col-6">
                             <label class="form-label">Dirección / Ref</label>
                             <input type="text" id="direccion" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-8">
+                            <label class="form-label">Cliente</label>
+                            <input type="text" id="cliente" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">Cant. Placas</label>
+                            <input type="number" id="cantPlacas" class="form-control form-control-sm" value="1">
                         </div>
                         <div class="col-12">
                             <label class="form-label">Placa(s) / Vehículo</label>
@@ -96,6 +100,7 @@
                                 <option value="GPS">GPS</option>
                                 <option value="MDVR">MDVR</option>
                                 <option value="CÁMARA">CÁMARA</option>
+                                <option value="SENSOR COMBUSTIBLE">SENSOR COMBUSTIBLE</option>
                             </select>
                         </div>
                         <div class="col-6">
@@ -115,25 +120,27 @@
                             <input type="datetime-local" id="inicio" class="form-control form-control-sm" required>
                         </div>
                         <div class="col-6">
-                            <label class="form-label">Fin</label>
+                            <label class="form-label">Fin Estimado</label>
                             <input type="datetime-local" id="fin" class="form-control form-control-sm">
                         </div>
                         <div class="col-12 mt-3">
-                            <button type="submit" id="btnGuardar" class="btn btn-primary w-100 fw-bold">SINCRONIZAR AGENDA</button>
+                            <button type="submit" id="btnGuardar" class="btn btn-primary w-100 fw-bold">GUARDAR</button>
                         </div>
                     </form>
                 </div>
             </div>
 
             <div id="colTabla" class="col-xl-8 col-lg-7">
-                <div class="card p-4">
+                <div class="card p-4 shadow">
                     <div class="d-flex justify-content-between mb-3 align-items-center">
-                        <h6 class="fw-bold m-0">AGENDA NACIONAL</h6>
+                        <h6 class="fw-bold m-0">Agenda Datatrack</h6>
                         <div class="btn-group shadow-sm">
                             <button class="btn btn-outline-primary btn-sm" onclick="setFiltro('todos')">Todos</button>
+                            <button class="btn btn-outline-primary btn-sm" onclick="setFiltro('ayer')">Ayer</button>
                             <button class="btn btn-outline-primary btn-sm" onclick="setFiltro('hoy')">Hoy</button>
                             <button class="btn btn-outline-primary btn-sm" onclick="setFiltro('semana')">Semana</button>
-                            <button onclick="exportarExcel()" class="btn btn-success btn-sm ms-2 solo-admin"><i class="bi bi-file-earmark-excel"></i></button>
+                            <button class="btn btn-outline-primary btn-sm" onclick="setFiltro('mes')">Mes</button>
+                            <button onclick="exportarExcel()" class="btn btn-success btn-sm ms-2 solo-admin"><i class="bi bi-file-earmark-excel"></i> Excel</button>
                         </div>
                     </div>
 
@@ -145,9 +152,9 @@
                         <table class="table table-hover align-middle">
                             <thead class="table-dark">
                                 <tr class="small">
-                                    <th>Técnico / Ciudad</th>
-                                    <th>Vehículo / Tarea</th>
-                                    <th>Programación</th>
+                                    <th>Técnico</th>
+                                    <th>Placas</th>
+                                    <th>Fecha/Hora</th>
                                     <th class="text-center">Acciones</th>
                                 </tr>
                             </thead>
