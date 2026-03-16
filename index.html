@@ -31,14 +31,14 @@
         <h4 class="fw-bold mt-3 mb-4">Datatrack Control</h4>
         <input type="email" id="userEmail" class="form-control mb-2" placeholder="Correo corporativo">
         <input type="password" id="userPass" class="form-control mb-3" placeholder="Contraseña">
-        <button class="btn btn-primary w-100 mb-3 py-2 fw-bold" onclick="login()">Despachador</button>
-        <button class="btn btn-outline-secondary w-100" onclick="accesoTecnico()">Técnico (Solo Ver)</button>
+        <button class="btn btn-primary w-100 mb-3 py-2 fw-bold" onclick="login()">Entrar</button>
+        <button class="btn btn-outline-secondary w-100" onclick="accesoTecnico()">Solo Lectura</button>
     </div>
 </div>
 
 <div id="appContent" class="hidden">
     <nav class="navbar p-3 d-flex justify-content-between align-items-center mb-4">
-        <span class="fw-bold">DATATRACK OPERACIONES | <small id="txtRol" class="text-info"></small></span>
+        <span class="fw-bold">DATATRACK | <small id="txtRol" class="text-info"></small></span>
         <button class="btn btn-sm btn-outline-light" onclick="logout()">Salir</button>
     </nav>
     
@@ -46,7 +46,7 @@
         <div class="row">
             <div id="colForm" class="col-xl-4 col-lg-5 mb-4 solo-admin">
                 <div class="card p-4">
-                    <h5 class="text-primary mb-3 border-bottom pb-2">Programar Servicio</h5>
+                    <h5 class="text-primary mb-3 border-bottom pb-2">Asignación</h5>
                     <form id="formServicio" class="row g-2">
                         <input type="hidden" id="editId">
                         <div class="col-6">
@@ -58,14 +58,20 @@
                         </div>
                         <div class="col-6">
                             <label class="form-label">Técnico</label>
-                            <select id="tecnico" class="form-select form-select-sm">
+                            <select id="tecnico" class="form-select form-select-sm" onchange="checkOtroTecnico(this.value)">
                                 <option value="Sebastián León">Sebastián León</option>
                                 <option value="Lord Zambrano">Lord Zambrano</option>
                                 <option value="Wilton Posso">Wilton Posso</option>
                                 <option value="Orlando Lara">Orlando Lara</option>
                                 <option value="Nilson Payares">Nilson Payares</option>
+                                <option value="OTRO">-- OTRO --</option>
                             </select>
                         </div>
+                        <div id="divOtroTecnico" class="col-12 hidden">
+                            <label class="form-label text-danger">Escriba el nombre del técnico</label>
+                            <input type="text" id="otroTecnicoNombre" class="form-control form-control-sm border-danger">
+                        </div>
+
                         <div class="col-6">
                             <label class="form-label">WhatsApp</label>
                             <input type="text" id="wsp" class="form-control form-control-sm">
@@ -87,29 +93,12 @@
                             <input type="text" id="cliente" class="form-control form-control-sm" required>
                         </div>
                         <div class="col-4">
-                            <label class="form-label">Cant. Placas</label>
+                            <label class="form-label">Placas</label>
                             <input type="number" id="cantPlacas" class="form-control form-control-sm" value="1">
                         </div>
-                        <div class="col-12 text-dark">
-                            <label class="form-label">Placa(s) / Vehículo</label>
+                        <div class="col-12">
+                            <label class="form-label">Vehículo / Placas</label>
                             <input type="text" id="placas" class="form-control form-control-sm" required>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Equipo</label>
-                            <select id="equipo" class="form-select form-select-sm">
-                                <option value="GPS">GPS</option>
-                                <option value="MDVR">MDVR</option>
-                                <option value="CÁMARA">CÁMARA</option>
-                                <option value="SENSOR">SENSOR</option>
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Tarea</label>
-                            <select id="tarea" class="form-select form-select-sm">
-                                <option value="Instalación">Instalación</option>
-                                <option value="Revisión">Revisión</option>
-                                <option value="Desinstalación">Desinstalación</option>
-                            </select>
                         </div>
                         <div class="col-12">
                             <label class="form-label">Observaciones</label>
@@ -119,12 +108,8 @@
                             <label class="form-label">Inicio</label>
                             <input type="datetime-local" id="inicio" class="form-control form-control-sm" required>
                         </div>
-                        <div class="col-6">
-                            <label class="form-label">Fin Estimado</label>
-                            <input type="datetime-local" id="fin" class="form-control form-control-sm">
-                        </div>
-                        <div class="col-12 mt-3">
-                            <button type="submit" id="btnGuardar" class="btn btn-primary w-100 fw-bold">GUARDAR / ACTUALIZAR</button>
+                        <div class="col-6 mt-4">
+                            <button type="submit" id="btnGuardar" class="btn btn-primary w-100 fw-bold">GUARDAR</button>
                         </div>
                     </form>
                 </div>
@@ -132,26 +117,14 @@
 
             <div id="colTabla" class="col-xl-8 col-lg-7">
                 <div class="card p-4">
-                    <div class="d-flex justify-content-between mb-3 align-items-center">
-                        <h6 class="fw-bold m-0 text-dark">Agenda de Servicios</h6>
-                        <div class="btn-group">
-                            <button class="btn btn-outline-primary btn-sm" onclick="setFiltro('todos')">Todos</button>
-                            <button class="btn btn-outline-primary btn-sm" onclick="setFiltro('hoy')">Hoy</button>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <input type="text" id="buscador" class="form-control" placeholder="Buscar técnico, placa o cliente..." onkeyup="renderizarTabla()">
-                    </div>
-
+                    <input type="text" id="buscador" class="form-control mb-3" placeholder="Buscar..." onkeyup="renderizarTabla()">
                     <div class="table-responsive">
                         <table class="table table-hover align-middle">
-                            <thead class="table-dark">
+                            <thead class="table-dark text-center">
                                 <tr class="small">
                                     <th>Técnico</th>
-                                    <th>Placas</th>
-                                    <th>Programación</th>
-                                    <th class="text-center">Acciones</th>
+                                    <th>Vehículo</th>
+                                    <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="tablaServicios"></tbody>
@@ -165,9 +138,9 @@
 
 <div class="modal fade" id="modalVer" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="border-radius: 15px;">
-            <div class="modal-header bg-primary text-white">
-                <h6 class="modal-title">Detalle del Servicio</h6>
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white p-2">
+                <h6 class="modal-title">Detalles</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" id="detalleContenido"></div>
@@ -176,7 +149,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
