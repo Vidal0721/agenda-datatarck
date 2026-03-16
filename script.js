@@ -16,11 +16,11 @@ let servicios = [];
 let esAdmin = false;
 let filtroActual = 'todos';
 
-// AUTH
+// --- AUTENTICACIÓN ---
 function login() {
     const email = document.getElementById('userEmail').value;
     const pass = document.getElementById('userPass').value;
-    auth.signInWithEmailAndPassword(email, pass).catch(() => alert("Error en credenciales"));
+    auth.signInWithEmailAndPassword(email, pass).catch(() => alert("Credenciales incorrectas"));
 }
 
 function accesoTecnico() {
@@ -62,15 +62,14 @@ function escucharDatos() {
 
 function setFiltro(val) { filtroActual = val; renderizarTabla(); }
 
+// --- RENDERIZADO DE TABLA (CORREGIDO) ---
 function renderizarTabla() {
     const tbody = document.getElementById('tablaServicios');
     const busq = document.getElementById('buscador').value.toLowerCase();
     tbody.innerHTML = '';
-    
     const hoy = new Date().toISOString().split('T')[0];
     
     servicios.forEach(s => {
-        // --- LIMPIEZA DE PLACAS UNDEFINED ---
         const placaVisual = s.placas || s.placa || s.vehiculo || "SIN PLACA";
         const fechaS = (s.inicio || "").split('T')[0];
         
@@ -78,6 +77,10 @@ function renderizarTabla() {
         if(filtroActual === 'hoy' && fechaS !== hoy) pasaFiltro = false;
 
         if(pasaFiltro && (s.tecnico + placaVisual + (s.cliente || "")).toLowerCase().includes(busq)) {
+            // Limpiar el número de WhatsApp (quitar espacios o símbolos si los hay)
+            const tel = s.wsp ? s.wsp.replace(/\D/g,'') : "";
+            const urlWsp = `https://api.whatsapp.com/send?phone=${tel}`;
+
             tbody.innerHTML += `
                 <tr>
                     <td><b>${s.tecnico}</b><br><small class="text-muted">${s.ciudad || ''}</small></td>
@@ -85,11 +88,11 @@ function renderizarTabla() {
                     <td><small>${(s.inicio || "").replace('T', ' ')}</small></td>
                     <td class="text-center">
                         <div class="btn-group gap-1">
-                            <button onclick="verDetalles('${s.id}')" class="btn btn-info btn-sm text-white"><i class="bi bi-eye"></i></button>
+                            <button onclick="verDetalles('${s.id}')" class="btn btn-info btn-sm text-white" title="Ver"><i class="bi bi-eye"></i></button>
                             ${esAdmin ? `
-                                <button onclick="editar('${s.id}')" class="btn btn-warning btn-sm text-white"><i class="bi bi-pencil"></i></button>
-                                <button onclick="eliminar('${s.id}')" class="btn btn-danger btn-sm"><i class="bi bi-trash"></i></button>
-                                <a href="https://wa.me/${s.wsp}" target="_blank" class="btn btn-success btn-sm"><i class="bi bi-whatsapp"></i></a>
+                                <button onclick="editar('${s.id}')" class="btn btn-warning btn-sm text-white" title="Editar"><i class="bi bi-pencil"></i></button>
+                                <button onclick="eliminar('${s.id}')" class="btn btn-danger btn-sm" title="Borrar"><i class="bi bi-trash"></i></button>
+                                <a href="${urlWsp}" target="_blank" class="btn btn-success btn-sm" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>
                             ` : ''}
                         </div>
                     </td>
@@ -98,7 +101,7 @@ function renderizarTabla() {
     });
 }
 
-// ACCIONES
+// --- ACCIONES DEL FORMULARIO ---
 document.getElementById('formServicio').addEventListener('submit', function(e) {
     e.preventDefault();
     const id = document.getElementById('editId').value;
@@ -119,56 +122,69 @@ document.getElementById('formServicio').addEventListener('submit', function(e) {
         fin: document.getElementById('fin').value
     };
 
-    if(id) db.ref('servicios/' + id).update(data);
-    else db.ref('servicios').push(data);
+    if(id) {
+        db.ref('servicios/' + id).update(data).then(() => alert("Actualizado"));
+    } else {
+        db.ref('servicios').push(data).then(() => alert("Guardado"));
+    }
     
     this.reset();
     document.getElementById('editId').value = '';
-    alert("Operación completada");
+    document.getElementById('btnGuardar').innerText = "GUARDAR";
 });
 
-function verDetalles(id) {
+// --- FUNCIONES DE BOTONES (VER Y EDITAR) ---
+window.verDetalles = function(id) {
     const s = servicios.find(x => x.id === id);
+    if(!s) return;
     const p = s.placas || s.placa || s.vehiculo || "N/A";
     
     document.getElementById('detalleContenido').innerHTML = `
         <div class="p-2">
-            <p><b>Cliente:</b> ${s.cliente || 'N/A'}</p>
-            <p><b>Placas:</b> <span class="text-danger fw-bold">${p}</span></p>
-            <p><b>Cantidad:</b> ${s.cantPlacas || 1}</p>
-            <p><b>Técnico:</b> ${s.tecnico}</p>
-            <p><b>Tarea:</b> ${s.tarea}</p>
-            <p><b>Equipo:</b> ${s.equipo}</p>
-            <p><b>Ciudad/Dir:</b> ${s.ciudad || ''} - ${s.direccion || ''}</p>
+            <p class="mb-1"><b>Cliente:</b> ${s.cliente || 'N/A'}</p>
+            <p class="mb-1"><b>Placas:</b> <span class="text-danger fw-bold">${p}</span></p>
+            <p class="mb-1"><b>Técnico:</b> ${s.tecnico}</p>
+            <p class="mb-1"><b>Tarea:</b> ${s.tarea}</p>
+            <p class="mb-1"><b>Equipo:</b> ${s.equipo}</p>
+            <p class="mb-1"><b>Dirección:</b> ${s.direccion || 'N/A'}</p>
+            <p class="mb-1"><b>Ciudad:</b> ${s.ciudad || 'N/A'}</p>
             <hr>
-            <p><b>Observaciones:</b> ${s.obs || 'Ninguna'}</p>
+            <p class="mb-1"><b>Observaciones:</b> ${s.obs || 'Ninguna'}</p>
+            <p class="mb-0 small text-muted">Asignado por: ${s.asignadoPor || 'N/A'}</p>
         </div>
     `;
-    // Forzamos la apertura del modal
     const myModal = new bootstrap.Modal(document.getElementById('modalVer'));
     myModal.show();
-}
+};
 
-function editar(id) {
+window.editar = function(id) {
     const s = servicios.find(x => x.id === id);
+    if(!s) return;
     document.getElementById('editId').value = s.id;
+    document.getElementById('asignadoPor').value = s.asignadoPor || 'Vidal Zambrano';
     document.getElementById('tecnico').value = s.tecnico;
-    document.getElementById('placas').value = s.placas || s.placa || '';
-    document.getElementById('cliente').value = s.cliente || '';
     document.getElementById('wsp').value = s.wsp || '';
+    document.getElementById('emailNotif').value = s.emailNotif || '';
+    document.getElementById('cliente').value = s.cliente || '';
+    document.getElementById('cantPlacas').value = s.cantPlacas || 1;
+    document.getElementById('placas').value = s.placas || s.placa || '';
     document.getElementById('ciudad').value = s.ciudad || '';
     document.getElementById('direccion').value = s.direccion || '';
     document.getElementById('equipo').value = s.equipo || 'GPS';
     document.getElementById('tarea').value = s.tarea || 'Instalación';
     document.getElementById('inicio').value = s.inicio || '';
+    document.getElementById('fin').value = s.fin || '';
     document.getElementById('obs').value = s.obs || '';
-    document.getElementById('btnGuardar').innerText = "ACTUALIZAR";
-    window.scrollTo(0,0);
-}
+    
+    document.getElementById('btnGuardar').innerText = "ACTUALIZAR REGISTRO";
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 
-function eliminar(id) {
-    if(confirm("¿Seguro que quieres borrar este servicio?")) db.ref('servicios/' + id).remove();
-}
+window.eliminar = function(id) {
+    if(confirm("¿Seguro que quieres borrar este registro de Datatrack?")) {
+        db.ref('servicios/' + id).remove();
+    }
+};
 
 function exportarExcel() {
     const ws = XLSX.utils.json_to_sheet(servicios);
