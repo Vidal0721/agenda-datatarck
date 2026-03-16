@@ -14,27 +14,26 @@ const db = firebase.database();
 
 let servicios = [];
 let esAdmin = false;
-let filtroActual = 'todos';
 
-// --- AUTH ---
+// --- LÓGICA DE FORMULARIO ---
+window.checkOtroTecnico = function(val) {
+    const div = document.getElementById('divOtroTecnico');
+    if(val === "OTRO") div.classList.remove('hidden');
+    else div.classList.add('hidden');
+}
+
+// --- LOGIN ---
 window.login = function() {
     const email = document.getElementById('userEmail').value;
     const pass = document.getElementById('userPass').value;
-    auth.signInWithEmailAndPassword(email, pass).catch(() => alert("Acceso denegado"));
+    auth.signInWithEmailAndPassword(email, pass).catch(() => alert("Error"));
 };
 
-window.accesoTecnico = function() {
-    esAdmin = false;
-    activarApp("VISTA TÉCNICO");
-};
-
+window.accesoTecnico = function() { activarApp("VISTA TÉCNICO"); };
 window.logout = function() { auth.signOut().then(() => location.reload()); };
 
 auth.onAuthStateChanged(user => {
-    if (user) {
-        esAdmin = true;
-        activarApp("DESPACHADOR: " + user.email);
-    }
+    if (user) { esAdmin = true; activarApp("DESPACHADOR: " + user.email); }
 });
 
 function activarApp(rol) {
@@ -53,37 +52,30 @@ function escucharDatos() {
     db.ref('servicios').on('value', snap => {
         servicios = [];
         const data = snap.val();
-        for (let id in data) {
-            servicios.push({ id, ...data[id] });
-        }
+        for (let id in data) { servicios.push({ id, ...data[id] }); }
         renderizarTabla();
     });
 }
 
-window.setFiltro = function(val) { filtroActual = val; renderizarTabla(); };
-
+// --- RENDERIZADO ROBUSTO (Para registros viejos y nuevos) ---
 window.renderizarTabla = function() {
     const tbody = document.getElementById('tablaServicios');
     const busq = document.getElementById('buscador').value.toLowerCase();
     tbody.innerHTML = '';
-    const hoy = new Date().toISOString().split('T')[0];
     
     servicios.forEach(s => {
-        // Soporte para campos viejos y nuevos
-        const placaVisual = s.placas || s.placa || s.vehiculo || "N/A";
-        const fechaS = (s.inicio || s.fecha || "").split('T')[0];
-        
-        let pasaFiltro = true;
-        if(filtroActual === 'hoy' && fechaS !== hoy) pasaFiltro = false;
+        // Validación extrema para evitar el "congelamiento" del código
+        const tecnicoNombre = s.tecnico || s.nombreTecnico || "Desconocido";
+        const placa = s.placas || s.placa || s.vehiculo || "---";
+        const cliente = s.cliente || "---";
 
-        if(pasaFiltro && (s.tecnico + placaVisual + (s.cliente || "")).toLowerCase().includes(busq)) {
+        if ((tecnicoNombre + placa + cliente).toLowerCase().includes(busq)) {
             const tel = s.wsp ? s.wsp.toString().replace(/\D/g,'') : "";
             
             tbody.innerHTML += `
                 <tr>
-                    <td><b>${s.tecnico || 'Sin Técnico'}</b><br><small>${s.ciudad || ''}</small></td>
-                    <td><span class="text-placa">${placaVisual}</span></td>
-                    <td><small>${(s.inicio || s.fecha || "").replace('T', ' ')}</small></td>
+                    <td><b>${tecnicoNombre}</b><br><small>${s.ciudad || ''}</small></td>
+                    <td class="text-center"><span class="text-placa">${placa}</span></td>
                     <td class="text-center">
                         <div class="btn-group gap-1">
                             <button onclick="verDetalles('${s.id}')" class="btn btn-info btn-sm text-white"><i class="bi bi-eye"></i></button>
@@ -99,13 +91,19 @@ window.renderizarTabla = function() {
     });
 };
 
-// --- ACCIONES ---
+// --- GUARDAR ---
 document.getElementById('formServicio').addEventListener('submit', function(e) {
     e.preventDefault();
     const id = document.getElementById('editId').value;
+    
+    let tecnicoFinal = document.getElementById('tecnico').value;
+    if(tecnicoFinal === "OTRO") {
+        tecnicoFinal = document.getElementById('otroTecnicoNombre').value;
+    }
+
     const data = {
+        tecnico: tecnicoFinal,
         asignadoPor: document.getElementById('asignadoPor').value,
-        tecnico: document.getElementById('tecnico').value,
         wsp: document.getElementById('wsp').value,
         emailNotif: document.getElementById('emailNotif').value,
         ciudad: document.getElementById('ciudad').value,
@@ -113,65 +111,67 @@ document.getElementById('formServicio').addEventListener('submit', function(e) {
         cliente: document.getElementById('cliente').value,
         cantPlacas: document.getElementById('cantPlacas').value,
         placas: document.getElementById('placas').value.toUpperCase(),
-        equipo: document.getElementById('equipo').value,
-        tarea: document.getElementById('tarea').value,
         obs: document.getElementById('obs').value,
-        inicio: document.getElementById('inicio').value,
-        fin: document.getElementById('fin').value
+        inicio: document.getElementById('inicio').value
     };
 
-    if(id) db.ref('servicios/' + id).set(data); // Usamos .set para estandarizar el registro viejo al nuevo formato
+    if(id) db.ref('servicios/' + id).update(data);
     else db.ref('servicios').push(data);
     
     this.reset();
+    document.getElementById('divOtroTecnico').classList.add('hidden');
     document.getElementById('editId').value = '';
-    document.getElementById('btnGuardar').innerText = "GUARDAR / ACTUALIZAR";
-    alert("Datos sincronizados.");
+    alert("Listo");
 });
 
+// --- VER Y EDITAR (Con protección contra datos nulos) ---
 window.verDetalles = function(id) {
-    const s = servicios.find(x => x.id === id);
-    if(!s) return;
-    const p = s.placas || s.placa || s.vehiculo || "N/A";
-    document.getElementById('detalleContenido').innerHTML = `
-        <p><b>Cliente:</b> ${s.cliente || 'N/A'}</p>
-        <p><b>Placas:</b> <span class="text-danger fw-bold">${p}</span></p>
-        <p><b>Técnico:</b> ${s.tecnico || 'N/A'}</p>
-        <p><b>Tarea:</b> ${s.tarea || 'N/A'}</p>
-        <p><b>Ubicación:</b> ${s.ciudad || ''} - ${s.direccion || ''}</p>
-        <hr>
-        <p><b>Observaciones:</b> ${s.obs || 'Sin observaciones'}</p>
-        <p><small><b>Asignado por:</b> ${s.asignadoPor || 'N/A'}</small></p>
-    `;
-    const m = new bootstrap.Modal(document.getElementById('modalVer'));
-    m.show();
+    try {
+        const s = servicios.find(x => x.id === id);
+        if(!s) return;
+        document.getElementById('detalleContenido').innerHTML = `
+            <p><b>Cliente:</b> ${s.cliente || 'N/A'}</p>
+            <p><b>Vehículo:</b> ${s.placas || s.placa || s.vehiculo || 'N/A'}</p>
+            <p><b>Técnico:</b> ${s.tecnico || 'N/A'}</p>
+            <p><b>Dirección:</b> ${s.direccion || ''}</p>
+            <hr>
+            <p><b>Obs:</b> ${s.obs || '---'}</p>
+        `;
+        new bootstrap.Modal(document.getElementById('modalVer')).show();
+    } catch(e) { console.error(e); alert("Error al cargar este registro viejo."); }
 };
 
 window.editar = function(id) {
-    const s = servicios.find(x => x.id === id);
-    if(!s) return;
+    try {
+        const s = servicios.find(x => x.id === id);
+        if(!s) return;
+        document.getElementById('editId').value = s.id;
+        
+        // Manejo de técnico (si no está en la lista, se pone en "OTRO")
+        const lista = ["Sebastián León", "Lord Zambrano", "Wilton Posso", "Orlando Lara", "Nilson Payares"];
+        if(lista.includes(s.tecnico)) {
+            document.getElementById('tecnico').value = s.tecnico;
+            document.getElementById('divOtroTecnico').classList.add('hidden');
+        } else {
+            document.getElementById('tecnico').value = "OTRO";
+            document.getElementById('divOtroTecnico').classList.remove('hidden');
+            document.getElementById('otroTecnicoNombre').value = s.tecnico || '';
+        }
 
-    // Mapeo inteligente de campos viejos a formulario nuevo
-    document.getElementById('editId').value = s.id;
-    document.getElementById('asignadoPor').value = s.asignadoPor || 'Vidal Zambrano';
-    document.getElementById('tecnico').value = s.tecnico || 'Sebastián León';
-    document.getElementById('wsp').value = s.wsp || '';
-    document.getElementById('emailNotif').value = s.emailNotif || s.email || '';
-    document.getElementById('cliente').value = s.cliente || '';
-    document.getElementById('cantPlacas').value = s.cantPlacas || 1;
-    document.getElementById('placas').value = s.placas || s.placa || s.vehiculo || '';
-    document.getElementById('ciudad').value = s.ciudad || '';
-    document.getElementById('direccion').value = s.direccion || '';
-    document.getElementById('equipo').value = s.equipo || 'GPS';
-    document.getElementById('tarea').value = s.tarea || 'Instalación';
-    document.getElementById('inicio').value = s.inicio || s.fecha || '';
-    document.getElementById('fin').value = s.fin || '';
-    document.getElementById('obs').value = s.obs || '';
-    
-    document.getElementById('btnGuardar').innerText = "ACTUALIZAR REGISTRO";
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+        document.getElementById('wsp').value = s.wsp || '';
+        document.getElementById('emailNotif').value = s.emailNotif || s.email || '';
+        document.getElementById('cliente').value = s.cliente || '';
+        document.getElementById('placas').value = s.placas || s.placa || s.vehiculo || '';
+        document.getElementById('ciudad').value = s.ciudad || '';
+        document.getElementById('direccion').value = s.direccion || '';
+        document.getElementById('inicio').value = s.inicio || '';
+        document.getElementById('obs').value = s.obs || '';
+        
+        document.getElementById('btnGuardar').innerText = "ACTUALIZAR";
+        window.scrollTo(0,0);
+    } catch(e) { alert("Error en datos antiguos."); }
 };
 
 window.eliminar = function(id) {
-    if(confirm("¿Borrar servicio definitivamente?")) db.ref('servicios/' + id).remove();
+    if(confirm("¿Borrar?")) db.ref('servicios/' + id).remove();
 };
