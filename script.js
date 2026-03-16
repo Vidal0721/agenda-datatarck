@@ -35,13 +35,13 @@ window.setFiltro = (estado) => {
 
 window.seleccionarTecnico = (v) => {
     const dO = document.getElementById('divOtro'), t = document.getElementById('telTec'), m = document.getElementById('emailTec');
-    if(v === "OTRO") { dO.classList.remove('hidden'); t.value = ""; m.value = ""; t.readOnly = false; m.readOnly = false; }
-    else { dO.classList.add('hidden'); t.value = STAFF[v]?.tel || ""; m.value = STAFF[v]?.mail || ""; t.readOnly = true; m.readOnly = true; }
+    if(v === "OTRO") { dO.classList.remove('hidden'); if(t) t.value = ""; if(m) m.value = ""; }
+    else if(STAFF[v]) { dO.classList.add('hidden'); if(t) t.value = STAFF[v].tel; if(m) m.value = STAFF[v].mail; }
 };
 
 window.login = () => {
     const e = document.getElementById('userEmail').value, p = document.getElementById('userPass').value;
-    auth.signInWithEmailAndPassword(e, p).catch(err => alert("Acceso denegado"));
+    auth.signInWithEmailAndPassword(e, p).catch(err => alert("Error de acceso"));
 };
 
 window.logout = () => auth.signOut().then(() => location.reload());
@@ -76,20 +76,28 @@ function renderizar() {
     
     [...servicios].reverse().forEach(s => {
         const est = s.estado || 'PENDIENTE';
+        const fI = (s.inicio || "").split('T')[0] || "---";
         const hI = (s.inicio || "").split('T')[1] || "00:00";
         const hF = (s.fin || "").split('T')[1] || "00:00";
         const real = est === 'REALIZADA';
 
-        // Aplicar Filtros
         const cumpleFiltro = (filtroEstado === 'TODOS' || est === filtroEstado);
-        const cumpleBusq = (s.tecnico + s.cliente + s.placas).toLowerCase().includes(busq);
+        const cumpleBusq = (s.tecnico + s.cliente + (s.placas||'')).toLowerCase().includes(busq);
 
         if(cumpleFiltro && cumpleBusq) {
             tbody.innerHTML += `
                 <tr>
-                    <td><b>${s.tecnico}</b><br><small class="text-muted">${s.cliente}</small></td>
+                    <td class="text-start ps-3">
+                        <b>${s.tecnico}</b><br>
+                        <small class="text-muted">${s.cliente}</small>
+                        <span class="obs-text" title="${s.observaciones || ''}">${s.observaciones ? '📝 ' + s.observaciones : ''}</span>
+                    </td>
                     <td><span class="text-placa">${s.placas || '---'}</span></td>
-                    <td><small>${hI} - ${hF}</small><br><span class="badge ${real ? 'badge-realizada':'badge-pendiente'}">${est}</span></td>
+                    <td>
+                        <div class="fw-bold text-primary" style="font-size:11px">${fI}</div>
+                        <div class="small text-muted">${hI} a ${hF}</div>
+                        <span class="badge ${real ? 'badge-realizada':'badge-pendiente'}" style="font-size:9px">${est}</span>
+                    </td>
                     <td>
                         <div class="btn-group gap-1">
                             <button onclick="verDetalle('${s.id}')" class="btn btn-sm btn-outline-primary border" title="Ver"><i class="bi bi-eye"></i></button>
@@ -113,10 +121,11 @@ document.getElementById('formServicio').onsubmit = (e) => {
     if(tec === "OTRO") tec = document.getElementById('otroNombre').value;
 
     const data = {
-        tecnico: tec, tel: document.getElementById('telTec').value, mail: document.getElementById('emailTec').value,
-        cliente: document.getElementById('cliente').value, direccion: document.getElementById('direccion').value || "",
+        tecnico: tec, cliente: document.getElementById('cliente').value,
+        direccion: document.getElementById('direccion').value || "",
         inicio: document.getElementById('fechaInicio').value, fin: document.getElementById('fechaFin').value,
-        placas: document.getElementById('placasTxt').value.toUpperCase(), observaciones: document.getElementById('observaciones').value || "",
+        placas: document.getElementById('placasTxt').value.toUpperCase(), 
+        observaciones: document.getElementById('observaciones').value || "",
         estado: 'PENDIENTE', timestamp: Date.now()
     };
 
@@ -124,29 +133,25 @@ document.getElementById('formServicio').onsubmit = (e) => {
     else db.ref('servicios').push(data).then(() => { alert("Guardado"); reset(); });
 };
 
-function reset() { document.getElementById('formServicio').reset(); document.getElementById('editId').value = ''; }
+function reset() { document.getElementById('formServicio').reset(); document.getElementById('editId').value = ''; document.getElementById('btnGuardar').innerText = "GUARDAR ASIGNACIÓN"; }
 
 window.verDetalle = (id) => {
     const s = servicios.find(x => x.id === id);
     document.getElementById('bodyDetalle').innerHTML = `
         <div class="p-2">
             <p><strong>Cliente:</strong> ${s.cliente}</p>
-            <p class="text-primary"><strong>Dirección:</strong> ${s.direccion || 'Sin dirección'}</p>
-            <p><strong>Placas:</strong> ${s.placas}</p>
-            <p><strong>Notas:</strong> ${s.observaciones || 'Sin notas'}</p>
+            <p class="text-primary"><strong>Dirección:</strong> ${s.direccion || 'No registrada'}</p>
+            <p><strong>Placas:</strong> ${s.placas || '---'}</p>
+            <p><strong>Observaciones:</strong><br><span class="text-muted">${s.observaciones || 'Sin notas'}</span></p>
             <hr>
-            <small class="text-muted">Cerrado por: ${s.cerradoPor || 'Pendiente'}</small>
+            <small class="text-muted">Estado: ${s.estado || 'PENDIENTE'}</small>
         </div>`;
     new bootstrap.Modal(document.getElementById('modalDetalle')).show();
 };
 
-window.reabrir = (id) => {
-    if(confirm("¿Reabrir servicio?")) db.ref('servicios/' + id).update({ estado: 'PENDIENTE', cerradoPor: null, fechaCierre: null });
-};
+window.reabrir = (id) => { if(confirm("¿Reabrir este servicio?")) db.ref('servicios/' + id).update({ estado: 'PENDIENTE', cerradoPor: null, fechaCierre: null }); };
 
-window.cerrar = (id) => {
-    if(confirm("¿Finalizar?")) db.ref('servicios/' + id).update({ estado: 'REALIZADA', cerradoPor: userLogueado, fechaCierre: new Date().toLocaleString('es-CO') });
-};
+window.cerrar = (id) => { if(confirm("¿Finalizar servicio?")) db.ref('servicios/' + id).update({ estado: 'REALIZADA', cerradoPor: userLogueado, fechaCierre: new Date().toLocaleString('es-CO') }); };
 
 window.editar = (id) => {
     const s = servicios.find(x => x.id === id);
@@ -159,14 +164,22 @@ window.editar = (id) => {
     document.getElementById('fechaFin').value = s.fin;
     document.getElementById('placasTxt').value = s.placas;
     document.getElementById('observaciones').value = s.observaciones || "";
+    document.getElementById('btnGuardar').innerText = "ACTUALIZAR DATOS";
     window.scrollTo(0,0);
 };
 
 window.eliminar = (id) => { if(confirm("¿Borrar?")) db.ref('servicios/' + id).remove(); };
 
 window.exportarExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(servicios);
+    const formatted = servicios.map(s => ({
+        Fecha: (s.inicio||'').split('T')[0],
+        Tecnico: s.tecnico,
+        Cliente: s.cliente,
+        Placas: s.placas,
+        Observaciones: s.observaciones
+    }));
+    const ws = XLSX.utils.json_to_sheet(formatted);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Servicios");
-    XLSX.writeFile(wb, "Reporte_Datatrack.xlsx");
+    XLSX.writeFile(wb, "Agenda_Datatrack.xlsx");
 };
