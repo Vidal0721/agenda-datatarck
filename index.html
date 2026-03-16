@@ -23,6 +23,7 @@
         .modo-tecnico .solo-admin { display: none !important; }
         .badge-realizada { background-color: #198754; color: white; }
         .badge-pendiente { background-color: #ffc107; color: black; }
+        .btn-filter.active { background-color: var(--dt-blue); color: white; }
     </style>
 </head>
 <body id="mainBody">
@@ -46,6 +47,24 @@
     </nav>
     
     <div class="container-fluid p-3">
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="card p-2 d-flex flex-row flex-wrap gap-2 align-items-center justify-content-between">
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-secondary btn-filter active" id="btnFiltroTodos" onclick="setFiltro('TODOS')">Todos</button>
+                        <button class="btn btn-sm btn-outline-warning btn-filter" id="btnFiltroPend" onclick="setFiltro('PENDIENTE')">Pendientes</button>
+                        <button class="btn btn-sm btn-outline-success btn-filter" id="btnFiltroReal" onclick="setFiltro('REALIZADA')">Realizados</button>
+                    </div>
+                    <div class="flex-grow-1 mx-md-3 my-2 my-md-0">
+                        <input type="text" id="busqueda" class="form-control form-control-sm" placeholder="Buscar por placa, cliente o técnico..." onkeyup="renderizar()">
+                    </div>
+                    <button class="btn btn-success btn-sm fw-bold solo-admin" onclick="exportarExcel()">
+                        <i class="bi bi-file-earmark-excel me-1"></i> EXCEL
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             <div id="colForm" class="col-md-4 mb-3 solo-admin">
                 <div class="card p-3 shadow-sm">
@@ -62,7 +81,6 @@
                             <option value="Wilton Posso">Wilton Posso</option>
                             <option value="OTRO">-- OTRO --</option>
                         </select>
-
                         <div id="divOtro" class="hidden mb-2">
                             <input type="text" id="otroNombre" class="form-control form-control-sm border-primary" placeholder="Nombre completo">
                         </div>
@@ -81,8 +99,8 @@
                         <label class="fw-bold">Cliente</label>
                         <input type="text" id="cliente" class="form-control form-control-sm mb-2" required>
 
-                        <label class="fw-bold text-success">Dirección del Servicio</label>
-                        <input type="text" id="direccion" class="form-control form-control-sm mb-2" placeholder="Ej: Calle 45 # 23-10">
+                        <label class="fw-bold text-primary">Dirección</label>
+                        <input type="text" id="direccion" class="form-control form-control-sm mb-2">
 
                         <div class="row g-2 mb-2">
                             <div class="col-6">
@@ -99,7 +117,7 @@
                         <input type="text" id="placasTxt" class="form-control form-control-sm mb-2" placeholder="ABC123, XYZ456">
 
                         <label class="fw-bold text-secondary">Observaciones</label>
-                        <textarea id="observaciones" class="form-control form-control-sm mb-3" rows="2" placeholder="Detalles adicionales..."></textarea>
+                        <textarea id="observaciones" class="form-control form-control-sm mb-3" rows="2"></textarea>
 
                         <button type="submit" id="btnGuardar" class="btn btn-primary w-100 fw-bold shadow-sm">GUARDAR ASIGNACIÓN</button>
                     </form>
@@ -108,12 +126,6 @@
 
             <div id="colTabla" class="col-md-8">
                 <div class="card p-3 shadow-sm">
-                    <div class="d-flex justify-content-between mb-3 align-items-center">
-                        <h6 class="m-0 fw-bold text-primary">LISTADO OPERATIVO</h6>
-                        <button class="btn btn-success btn-sm fw-bold solo-admin" onclick="exportarExcel()">
-                            <i class="bi bi-file-earmark-excel me-1"></i> EXCEL
-                        </button>
-                    </div>
                     <div class="table-responsive">
                         <table class="table table-sm table-hover border">
                             <thead class="table-dark text-center">
@@ -137,7 +149,7 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content shadow-lg border-0">
       <div class="modal-header bg-primary text-white py-2">
-        <h6 class="modal-title fw-bold">Detalle del Servicio</h6>
+        <h6 class="modal-title fw-bold">Detalles del Servicio</h6>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" id="bodyDetalle"></div>
