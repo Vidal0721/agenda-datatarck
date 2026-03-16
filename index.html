@@ -3,97 +3,150 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Datatrack - Gestión Segura</title>
+    <title>Datatrack - Gestión Operativa</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
     <style>
-        body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
-        /* Pantalla de Login */
+        body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        
+        /* PANTALLA DE LOGIN */
         #loginScreen { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #002b5c; display: flex; align-items: center; justify-content: center; z-index: 9999; 
+            background: linear-gradient(135deg, #002b5c 0%, #0056b3 100%); 
+            display: flex; align-items: center; justify-content: center; z-index: 9999; 
         }
-        .login-card { background: white; padding: 2rem; border-radius: 15px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .login-card { background: white; padding: 2.5rem; border-radius: 20px; width: 100%; max-width: 400px; box-shadow: 0 15px 35px rgba(0,0,0,0.4); }
+        .logo-login { max-width: 200px; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto; }
         
-        /* App Layout */
-        .navbar { background-color: #002b5c; color: white; }
+        /* APP LAYOUT */
+        .navbar { background-color: #002b5c; color: white; padding: 1rem; }
         .hidden { display: none !important; }
-        .text-placa { color: #d63384; font-weight: bold; font-family: monospace; }
-        .btn-wsp { background-color: #25D366; color: white; }
+        .card { border: none; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .form-label { font-weight: 700; color: #334155; font-size: 0.75rem; text-transform: uppercase; }
+        .text-placa { color: #d63384; font-weight: 800; font-family: 'Courier New', monospace; font-size: 1.1rem; }
+        
+        /* BOTONES ACCIÓN */
+        .btn-wsp { background-color: #25D366; color: white; border: none; }
+        .btn-mail { background-color: #ea4335; color: white; border: none; }
+        
+        /* MODO LECTURA (TÉCNICO) */
+        .modo-tecnico .solo-admin { display: none !important; }
+        .modo-tecnico #panelTabla { width: 100% !important; flex: 0 0 100% !important; max-width: 100% !important; }
     </style>
 </head>
-<body>
+<body id="mainBody">
 
 <div id="loginScreen">
-    <div class="login-card text-center">
-        <img src="https://via.placeholder.com/150x50?text=DATATRACK" class="mb-4" alt="Logo">
-        <h4 class="mb-3">Panel de Control</h4>
+    <div class="login-card text-center shadow">
+        <img src="https://img.icons8.com/fluency/96/truck.png" class="logo-login" alt="Logo Datatrack">
+        <h4 class="mb-4 fw-bold" style="color: #002b5c;">Control Operativo</h4>
+        
         <div id="loginForm">
-            <input type="email" id="userEmail" class="form-control mb-2" placeholder="Correo Despachador">
-            <input type="password" id="userPass" class="form-control mb-3" placeholder="Contraseña">
-            <button class="btn btn-primary w-100 mb-2" onclick="login()">Entrar como Despachador</button>
-            <hr>
-            <button class="btn btn-outline-secondary w-100" onclick="accesoTecnico()">Acceso Visual Técnico</button>
+            <div class="mb-3 text-start">
+                <label class="form-label">Correo Despachador</label>
+                <input type="email" id="userEmail" class="form-control" placeholder="usuario@datatrack.co">
+            </div>
+            <div class="mb-4 text-start">
+                <label class="form-label">Contraseña</label>
+                <input type="password" id="userPass" class="form-control" placeholder="••••••••">
+            </div>
+            <button class="btn btn-primary w-100 mb-3 py-2 fw-bold" onclick="login()">INGRESAR AL PANEL</button>
+            
+            <div class="d-flex align-items-center my-3">
+                <hr class="flex-grow-1"> <span class="mx-2 text-muted small">O ACCESO DE CAMPO</span> <hr class="flex-grow-1">
+            </div>
+            
+            <button class="btn btn-outline-secondary w-100 py-2" onclick="accesoTecnico()">ACCESO TÉCNICO (SÓLO LECTURA)</button>
         </div>
     </div>
 </div>
 
 <div id="appContent" class="hidden">
-    <nav class="navbar p-3 mb-4 d-flex justify-content-between">
-        <span class="h5 mb-0">DATATRACK - <span id="txtRol">Rol</span></span>
-        <button class="btn btn-sm btn-light" onclick="logout()">Cerrar Sesión</button>
+    <nav class="navbar d-flex justify-content-between align-items-center mb-4 px-4">
+        <span class="h5 mb-0 fw-bold"><i class="bi bi-box-seam"></i> DATATRACK | <small id="txtRol" class="fw-light"></small></span>
+        <button class="btn btn-sm btn-outline-light" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Salir</button>
     </nav>
 
     <div class="container-fluid px-4">
         <div class="row">
-            <div id="colForm" class="col-xl-4 col-lg-5 mb-4 hidden">
-                <div class="card p-4 border-0 shadow-sm">
-                    <h5 class="text-primary mb-3 border-bottom pb-2">Nueva Asignación</h5>
+            <div id="panelForm" class="col-xl-4 col-lg-5 mb-4 solo-admin">
+                <div class="card p-4">
+                    <h5 class="text-primary border-bottom pb-2 mb-3">Asignar Servicio</h5>
                     <form id="formServicio">
                         <input type="hidden" id="editId">
-                        <div class="mb-3">
-                            <label class="small fw-bold">TÉCNICO</label>
-                            <select id="tecnicoSelect" class="form-select" onchange="cargarDatosTecnico()" required>
-                                <option value="">Seleccione...</option>
-                                <option value="Sebastián León">Sebastián León</option>
-                                <option value="Lord Zambrano">Lord Zambrano</option>
-                                <option value="Wilton Posso">Wilton Posso</option>
-                                <option value="Orlando Lara">Orlando Lara</option>
-                            </select>
-                        </div>
+                        
                         <div class="row mb-3">
-                            <div class="col-8">
-                                <label class="small fw-bold">CLIENTE</label>
-                                <input type="text" id="cliente" class="form-control" required>
+                            <div class="col-md-6">
+                                <label class="form-label">Técnico</label>
+                                <select id="tecnicoSelect" class="form-select" onchange="cargarDatosTecnico()" required>
+                                    <option value="">Seleccione...</option>
+                                    <option value="Lord Zambrano">Lord Zambrano</option>
+                                    <option value="Orlando Lara">Orlando Lara</option>
+                                    <option value="Sebastián León">Sebastián León</option>
+                                    <option value="Wilton Posso">Wilton Posso</option>
+                                </select>
                             </div>
-                            <div class="col-4">
-                                <label class="small fw-bold">CANT.</label>
+                            <div class="col-md-6">
+                                <label class="form-label">Placas</label>
                                 <input type="number" id="cantPlacas" class="form-control" value="1" min="1" oninput="generarCamposPlacas()">
                             </div>
                         </div>
+
                         <div id="contenedorPlacas" class="row gx-2 mb-3"></div>
-                        <button type="submit" class="btn btn-primary w-100">GUARDAR ASIGNACIÓN</button>
+
+                        <div class="mb-3">
+                            <label class="form-label">Cliente</label>
+                            <input type="text" id="cliente" class="form-control" required>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label">Ciudad</label>
+                                <input type="text" id="ubicacion" class="form-control" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Equipo</label>
+                                <select id="equipo" class="form-select" required>
+                                    <option value="GPS">GPS</option>
+                                    <option value="MDVR">MDVR</option>
+                                    <option value="CÁMARA">CÁMARA</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label">Fecha y Hora Inicio</label>
+                            <input type="datetime-local" id="inicio" class="form-control" required>
+                        </div>
+
+                        <button type="submit" id="btnSubmit" class="btn btn-primary w-100 fw-bold">SINCRONIZAR AGENDA</button>
                     </form>
                 </div>
             </div>
 
-            <div id="colTabla" class="col-12">
-                <div class="card p-4 border-0 shadow-sm">
-                    <div class="d-flex justify-content-between mb-3">
-                        <h6>Agenda Nacional</h6>
-                        <input type="text" id="filtroTexto" class="form-control form-control-sm w-50" placeholder="Filtrar..." onkeyup="renderizarTabla()">
+            <div id="panelTabla" class="col-xl-8 col-lg-7">
+                <div class="card p-4">
+                    <div class="d-flex justify-content-between mb-3 align-items-center">
+                        <h6 class="fw-bold text-secondary">AGENDA NACIONAL SINCRONIZADA</h6>
+                        <div class="d-flex gap-2">
+                            <input type="text" id="filtroTexto" class="form-control form-control-sm" placeholder="Buscar placa o técnico..." onkeyup="renderizarTabla()">
+                            <button onclick="exportarExcel()" class="btn btn-success btn-sm solo-admin"><i class="bi bi-file-earmark-excel"></i></button>
+                        </div>
                     </div>
+
                     <div class="table-responsive">
                         <table class="table table-hover align-middle">
                             <thead class="table-dark">
                                 <tr>
                                     <th>Técnico</th>
-                                    <th>Servicio / Placas</th>
-                                    <th>Horario</th>
-                                    <th class="text-center colAcciones hidden">Acciones</th>
+                                    <th>Vehículo / Info</th>
+                                    <th>Programación</th>
+                                    <th class="text-center solo-admin">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="tablaServicios"></tbody>
@@ -106,5 +159,6 @@
 </div>
 
 <script src="script.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </body>
-</html>v
+</html>
