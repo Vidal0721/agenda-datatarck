@@ -20,7 +20,7 @@ let filtroActual = 'todos';
 function login() {
     const email = document.getElementById('userEmail').value;
     const pass = document.getElementById('userPass').value;
-    auth.signInWithEmailAndPassword(email, pass).catch(() => alert("Credenciales incorrectas"));
+    auth.signInWithEmailAndPassword(email, pass).catch(() => alert("Error en credenciales"));
 }
 
 function accesoTecnico() {
@@ -51,7 +51,11 @@ function activarVistas(rol) {
 
 function escucharDatos() {
     db.ref('servicios').on('value', snap => {
-        servicios = snap.val() ? Object.entries(snap.val()).map(([id, data]) => ({id, ...data})) : [];
+        servicios = [];
+        const data = snap.val();
+        for (let id in data) {
+            servicios.push({ id, ...data[id] });
+        }
         renderizarTabla();
     });
 }
@@ -63,30 +67,25 @@ function renderizarTabla() {
     const busq = document.getElementById('buscador').value.toLowerCase();
     tbody.innerHTML = '';
     
-    const ahora = new Date();
-    const hoyStr = ahora.toISOString().split('T')[0];
+    const hoy = new Date().toISOString().split('T')[0];
     
     servicios.forEach(s => {
-        // SOLUCIÓN AL "UNDEFINED" DE PLACAS
+        // --- LIMPIEZA DE PLACAS UNDEFINED ---
         const placaVisual = s.placas || s.placa || s.vehiculo || "SIN PLACA";
         const fechaS = (s.inicio || "").split('T')[0];
         
         let pasaFiltro = true;
-        if(filtroActual === 'hoy' && fechaS !== hoyStr) pasaFiltro = false;
-        if(filtroActual === 'ayer') {
-            const ayer = new Date(); ayer.setDate(ahora.getDate() - 1);
-            if(fechaS !== ayer.toISOString().split('T')[0]) pasaFiltro = false;
-        }
+        if(filtroActual === 'hoy' && fechaS !== hoy) pasaFiltro = false;
 
         if(pasaFiltro && (s.tecnico + placaVisual + (s.cliente || "")).toLowerCase().includes(busq)) {
             tbody.innerHTML += `
                 <tr>
                     <td><b>${s.tecnico}</b><br><small class="text-muted">${s.ciudad || ''}</small></td>
-                    <td><span class="text-placa">${placaVisual}</span><br><small class="text-secondary">${s.equipo || ''}</small></td>
+                    <td><span class="text-placa">${placaVisual}</span><br><small>${s.tarea || ''}</small></td>
                     <td><small>${(s.inicio || "").replace('T', ' ')}</small></td>
                     <td class="text-center">
                         <div class="btn-group gap-1">
-                            <button onclick="verDetalles('${s.id}')" class="btn btn-outline-info btn-sm"><i class="bi bi-eye"></i></button>
+                            <button onclick="verDetalles('${s.id}')" class="btn btn-info btn-sm text-white"><i class="bi bi-eye"></i></button>
                             ${esAdmin ? `
                                 <button onclick="editar('${s.id}')" class="btn btn-warning btn-sm text-white"><i class="bi bi-pencil"></i></button>
                                 <button onclick="eliminar('${s.id}')" class="btn btn-danger btn-sm"><i class="bi bi-trash"></i></button>
@@ -125,22 +124,29 @@ document.getElementById('formServicio').addEventListener('submit', function(e) {
     
     this.reset();
     document.getElementById('editId').value = '';
-    alert("Datos sincronizados.");
+    alert("Operación completada");
 });
 
 function verDetalles(id) {
     const s = servicios.find(x => x.id === id);
+    const p = s.placas || s.placa || s.vehiculo || "N/A";
+    
     document.getElementById('detalleContenido').innerHTML = `
-        <p><b>Cliente:</b> ${s.cliente || 'N/A'}</p>
-        <p><b>Placas:</b> ${s.placas || s.placa || 'N/A'}</p>
-        <p><b>Cant:</b> ${s.cantPlacas || 1}</p>
-        <p><b>Técnico:</b> ${s.tecnico}</p>
-        <p><b>Tarea:</b> ${s.tarea}</p>
-        <p><b>Dirección:</b> ${s.direccion || ''}</p>
-        <hr>
-        <p><b>Observaciones:</b> ${s.obs || 'N/A'}</p>
+        <div class="p-2">
+            <p><b>Cliente:</b> ${s.cliente || 'N/A'}</p>
+            <p><b>Placas:</b> <span class="text-danger fw-bold">${p}</span></p>
+            <p><b>Cantidad:</b> ${s.cantPlacas || 1}</p>
+            <p><b>Técnico:</b> ${s.tecnico}</p>
+            <p><b>Tarea:</b> ${s.tarea}</p>
+            <p><b>Equipo:</b> ${s.equipo}</p>
+            <p><b>Ciudad/Dir:</b> ${s.ciudad || ''} - ${s.direccion || ''}</p>
+            <hr>
+            <p><b>Observaciones:</b> ${s.obs || 'Ninguna'}</p>
+        </div>
     `;
-    new bootstrap.Modal('#modalVer').show();
+    // Forzamos la apertura del modal
+    const myModal = new bootstrap.Modal(document.getElementById('modalVer'));
+    myModal.show();
 }
 
 function editar(id) {
@@ -161,7 +167,7 @@ function editar(id) {
 }
 
 function eliminar(id) {
-    if(confirm("¿Borrar este servicio?")) db.ref('servicios/' + id).remove();
+    if(confirm("¿Seguro que quieres borrar este servicio?")) db.ref('servicios/' + id).remove();
 }
 
 function exportarExcel() {
