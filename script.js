@@ -19,7 +19,8 @@ let userLogueado = null;
 const STAFF = {
     "Sebastián León": { mail: "tecnico1@datatrack.co", tel: "573135307403" },
     "Orlando Lara": { mail: "tecnico2@datatrack.co", tel: "573135307403" },
-    "Lord Zambrano": { mail: "lord.tecnico3@datatrack.co", tel: "573135307403" }
+    "Lord Zambrano": { mail: "lord.tecnico3@datatrack.co", tel: "573135307403" },
+    "Wilton Posso": { mail: "tecnico4@datatrack.co", tel: "573135307403" }
 };
 
 window.seleccionarTecnico = (v) => {
@@ -33,7 +34,7 @@ window.seleccionarTecnico = (v) => {
 window.login = () => {
     const e = document.getElementById('userEmail').value;
     const p = document.getElementById('userPass').value;
-    auth.signInWithEmailAndPassword(e, p).catch(err => alert("Acceso denegado."));
+    auth.signInWithEmailAndPassword(e, p).catch(err => alert("Error: " + err.message));
 };
 
 window.logout = () => auth.signOut().then(() => location.reload());
@@ -49,12 +50,12 @@ auth.onAuthStateChanged(user => {
 function activarApp() {
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('appContent').classList.remove('hidden');
-    document.getElementById('txtRol').innerText = (esAdmin ? "ADM: " : "TEC: ") + userLogueado.split('@')[0];
+    document.getElementById('txtRol').innerText = (esAdmin ? "ADM: " : "TEC: ") + (userLogueado ? userLogueado.split('@')[0] : "Invitado");
     
     if(!esAdmin) {
         document.getElementById('mainBody').classList.add('modo-tecnico');
         document.getElementById('colForm').classList.add('hidden');
-        document.getElementById('colTabla').classList.replace('col-md-8', 'col-12');
+        document.getElementById('colTabla').className = "col-12";
     }
     
     db.ref('servicios').on('value', snap => {
@@ -69,7 +70,10 @@ function renderizar() {
     tbody.innerHTML = '';
     
     [...servicios].reverse().forEach(s => {
-        const esRealizada = s.estado === 'REALIZADA';
+        // CORRECCIÓN: Si el estado no existe, poner PENDIENTE por defecto
+        const estadoActual = s.estado || 'PENDIENTE';
+        const esRealizada = estadoActual === 'REALIZADA';
+        
         const hI = (s.inicio || "").split('T')[1] || "00:00";
         const hF = (s.fin || "").split('T')[1] || "00:00";
 
@@ -77,14 +81,18 @@ function renderizar() {
             <tr>
                 <td><b>${s.tecnico}</b><br><small class="text-muted">${s.cliente}</small></td>
                 <td><span class="text-placa">${s.placas || '---'}</span></td>
-                <td><small>${hI} - ${hF}</small><br><span class="badge ${esRealizada ? 'badge-realizada':'badge-pendiente'}">${s.estado}</span></td>
+                <td><small>${hI} - ${hF}</small><br><span class="badge ${esRealizada ? 'badge-realizada':'badge-pendiente'}">${estadoActual}</span></td>
                 <td>
                     <div class="btn-group">
                         ${esAdmin ? `
                             <button onclick="editar('${s.id}')" class="btn btn-sm btn-light border"><i class="bi bi-pencil text-warning"></i></button>
                             <button onclick="eliminar('${s.id}')" class="btn btn-sm btn-light border"><i class="bi bi-trash text-danger"></i></button>
+                        ` : ""}
+                        
+                        ${!esRealizada ? `
+                            <button onclick="cerrar('${s.id}')" class="btn btn-sm btn-success px-3 fw-bold">CERRAR</button>
                         ` : `
-                            ${!esRealizada ? `<button onclick="cerrar('${s.id}')" class="btn btn-sm btn-success px-3 fw-bold">CERRAR</button>` : `<i class="bi bi-check-circle-fill text-success"></i>`}
+                            <span class="text-success small"><i class="bi bi-check-all"></i> OK</span>
                         `}
                     </div>
                 </td>
@@ -98,13 +106,6 @@ document.getElementById('formServicio').onsubmit = (e) => {
     let tec = document.getElementById('tecnico').value;
     if(tec === "OTRO") tec = document.getElementById('otroNombre').value;
 
-    // Validación de Choque
-    const inN = new Date(document.getElementById('fechaInicio').value).getTime();
-    const fiN = new Date(document.getElementById('fechaFin').value).getTime();
-    const choque = servicios.find(s => s.id !== id && s.tecnico === tec && s.estado === 'PENDIENTE' && ((inN >= new Date(s.inicio).getTime() && inN < new Date(s.fin).getTime()) || (fiN > new Date(s.inicio).getTime() && fiN <= new Date(s.fin).getTime())));
-
-    if(choque) return alert("EL TÉCNICO TIENE CRUCE DE HORARIO");
-
     const data = {
         tecnico: tec,
         tel: document.getElementById('telTec').value,
@@ -112,9 +113,8 @@ document.getElementById('formServicio').onsubmit = (e) => {
         cliente: document.getElementById('cliente').value,
         inicio: document.getElementById('fechaInicio').value,
         fin: document.getElementById('fechaFin').value,
-        placas: document.getElementById('placasTxt').value.toUpperCase(),
+        placas: document.getElementById('placasTxt').value.toUpperCase() || "POR DEFINIR",
         estado: 'PENDIENTE',
-        creadoPor: userLogueado,
         timestamp: Date.now()
     };
 
@@ -125,12 +125,12 @@ document.getElementById('formServicio').onsubmit = (e) => {
 function reset() { document.getElementById('formServicio').reset(); document.getElementById('editId').value = ''; }
 
 window.cerrar = (id) => {
-    if(confirm("¿Cerrar servicio? Se guardará tu firma digital.")) {
+    if(confirm("¿Confirmas la finalización de este servicio?")) {
         db.ref('servicios/' + id).update({ 
             estado: 'REALIZADA', 
             cerradoPor: userLogueado, 
             fechaCierre: new Date().toLocaleString('es-CO') 
-        }).then(() => alert("Servicio Cerrado"));
+        }).then(() => alert("Servicio Cerrado con Éxito"));
     }
 };
 
@@ -141,26 +141,24 @@ window.editar = (id) => {
     seleccionarTecnico(document.getElementById('tecnico').value);
     if(document.getElementById('tecnico').value === "OTRO") document.getElementById('otroNombre').value = s.tecnico;
     document.getElementById('cliente').value = s.cliente;
-    document.getElementById('fechaInicio').value = s.inicio;
-    document.getElementById('fechaFin').value = s.fin;
-    document.getElementById('placasTxt').value = s.placas;
+    document.getElementById('fechaInicio').value = s.inicio || "";
+    document.getElementById('fechaFin').value = s.fin || "";
+    document.getElementById('placasTxt').value = s.placas || "";
 };
 
-window.eliminar = (id) => { if(confirm("¿Eliminar?")) db.ref('servicios/' + id).remove(); };
+window.eliminar = (id) => { if(confirm("¿Borrar permanentemente?")) db.ref('servicios/' + id).remove(); };
 
 window.exportarExcel = () => {
     const datosExcel = servicios.map(s => ({
         Tecnico: s.tecnico,
         Cliente: s.cliente,
         Placas: s.placas,
-        Inicio: s.inicio.replace('T', ' '),
-        Fin_Estimado: s.fin.replace('T', ' '),
-        Estado: s.estado,
-        Cerrado_Por: s.cerradoPor || 'PENDIENTE',
+        Estado: s.estado || 'PENDIENTE',
+        Cerrado_Por: s.cerradoPor || 'N/A',
         Fecha_Cierre: s.fechaCierre || 'N/A'
     }));
     const ws = XLSX.utils.json_to_sheet(datosExcel);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Servicios");
-    XLSX.writeFile(wb, "Agenda_Datatrack_Reporte.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+    XLSX.writeFile(wb, "Reporte_Datatrack.xlsx");
 };
