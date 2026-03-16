@@ -3,180 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Datatrack - Gestión Operativa</title>
+    <title>Datatrack - Gestión Segura</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
-        .navbar { background: linear-gradient(90deg, #002b5c 0%, #0056b3 100%); color: white; padding: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
-        .card { border: none; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        .form-label { font-weight: 700; color: #334155; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 5px; }
-        .btn-primary { background-color: #002b5c; border: none; font-weight: bold; }
-        /* COLORES DE BOTONES ACCIÓN */
-        .btn-wsp { background-color: #25D366; color: white; border: none; }
-        .btn-mail { background-color: #ea4335; color: white; border: none; }
-        .btn-edit { background-color: #f1c40f; color: #000; border: none; }
-        .btn-delete { background-color: #e74c3c; color: white; border: none; }
-        .text-placa { color: #d63384; font-weight: 800; font-family: 'Courier New', monospace; }
-        .editing { border: 2px solid #f1c40f !important; background-color: #fffdf2 !important; }
-        .d-none { display: none !important; }
+        /* Pantalla de Login */
+        #loginScreen { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: #002b5c; display: flex; align-items: center; justify-content: center; z-index: 9999; 
+        }
+        .login-card { background: white; padding: 2rem; border-radius: 15px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        
+        /* App Layout */
+        .navbar { background-color: #002b5c; color: white; }
+        .hidden { display: none !important; }
+        .text-placa { color: #d63384; font-weight: bold; font-family: monospace; }
+        .btn-wsp { background-color: #25D366; color: white; }
     </style>
 </head>
 <body>
 
-<nav class="navbar mb-4">
-    <div class="container-fluid d-flex justify-content-between align-items-center">
-        <span class="navbar-brand mb-0 h1 text-white">DATATRACK OPERACIONES</span>
-        <div id="contadorHoy" class="badge bg-light text-dark p-2 border">Sincronizando...</div>
-    </div>
-</nav>
-
-<div class="container-fluid px-4">
-    <div class="row">
-        <div class="col-xl-4 col-lg-5 mb-4">
-            <div class="card p-4" id="cardForm">
-                <h5 class="text-primary border-bottom pb-2 mb-3" id="formTitle">Asignar Servicio</h5>
-                <form id="formServicio">
-                    <input type="hidden" id="editId">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Asignado Por</label>
-                            <select id="despachador" class="form-select border-primary" required>
-                                <option value="Gabriel Mercado">Gabriel Mercado</option>
-                                <option value="Ivan Torres">Ivan Torres</option>
-                                <option value="Vidal Zambrano">Vidal Zambrano</option>
-                                <option value="Wendy Prentt">Wendy Prentt</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Técnico</label>
-                            <select id="tecnicoSelect" class="form-select" onchange="cargarDatosTecnico()" required>
-                                <option value="">Seleccione Técnico...</option>
-                                <option value="Lord Zambrano">Lord Zambrano</option>
-                                <option value="Orlando Lara">Orlando Lara</option>
-                                <option value="Sebastián León">Sebastián León</option>
-                                <option value="Wilton Posso">Wilton Posso</option>
-                                <option value="Otro">Otro...</option>
-                            </select>
-                        </div>
-                    </div>
-                    <input type="text" id="otroTecnico" class="form-control mb-3 d-none" placeholder="Nombre completo">
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">WhatsApp</label>
-                            <input type="tel" id="telTecnico" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Email</label>
-                            <input type="email" id="emailTecnico" class="form-control" required>
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Ciudad</label>
-                            <input type="text" id="ubicacion" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Dirección</label>
-                            <input type="text" id="direccion" class="form-control" required>
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-8">
-                            <label class="form-label">Cliente</label>
-                            <input type="text" id="cliente" class="form-control" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Placas</label>
-                            <input type="number" id="cantPlacas" class="form-control" value="1" min="1" oninput="generarCamposPlacas()">
-                        </div>
-                    </div>
-
-                    <div id="contenedorPlacas" class="row gx-2 mb-3"></div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Equipo</label>
-                            <select id="equipo" class="form-select" onchange="toggleOtro('equipo', 'otroEquipo')" required>
-                                <option value="GPS">GPS</option>
-                                <option value="MDVR">MDVR</option>
-                                <option value="CÁMARA">CÁMARA</option>
-                                <option value="OTRO">OTRO...</option>
-                            </select>
-                            <input type="text" id="otroEquipo" class="form-control mt-1 d-none">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Tarea</label>
-                            <select id="descripcion" class="form-select" onchange="toggleOtro('descripcion', 'otraTarea')" required>
-                                <option value="Revisión">Revisión</option>
-                                <option value="Instalación Inicial">Instalación Inicial</option>
-                                <option value="Desmonte">Desmonte</option>
-                                <option value="OTRO">OTRO...</option>
-                            </select>
-                            <input type="text" id="otraTarea" class="form-control mt-1 d-none">
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Observaciones</label>
-                        <textarea id="observaciones" class="form-control" rows="2"></textarea>
-                    </div>
-
-                    <div class="row mb-4">
-                        <div class="col-6">
-                            <label class="form-label">Inicio</label>
-                            <input type="datetime-local" id="inicio" class="form-control" required>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Fin</label>
-                            <input type="datetime-local" id="fin" class="form-control" required>
-                        </div>
-                    </div>
-
-                    <button type="submit" id="btnSubmit" class="btn btn-primary w-100">GUARDAR</button>
-                    <button type="button" id="btnCancel" class="btn btn-secondary w-100 mt-2 d-none" onclick="cancelarEdicion()">CANCELAR</button>
-                </form>
-            </div>
+<div id="loginScreen">
+    <div class="login-card text-center">
+        <img src="https://via.placeholder.com/150x50?text=DATATRACK" class="mb-4" alt="Logo">
+        <h4 class="mb-3">Panel de Control</h4>
+        <div id="loginForm">
+            <input type="email" id="userEmail" class="form-control mb-2" placeholder="Correo Despachador">
+            <input type="password" id="userPass" class="form-control mb-3" placeholder="Contraseña">
+            <button class="btn btn-primary w-100 mb-2" onclick="login()">Entrar como Despachador</button>
+            <hr>
+            <button class="btn btn-outline-secondary w-100" onclick="accesoTecnico()">Acceso Visual Técnico</button>
         </div>
+    </div>
+</div>
 
-        <div class="col-xl-8 col-lg-7">
-            <div class="card p-4">
-                <div class="d-flex justify-content-between mb-3 align-items-center">
-                    <h5 class="text-secondary mb-0">Agenda Datatrack</h5>
-                    <button onclick="exportarExcel()" class="btn btn-success btn-sm">Excel</button>
-                </div>
-                
-                <div class="row g-2 mb-3">
-                    <div class="col-md-4">
-                        <input type="text" id="filtroTexto" class="form-control" placeholder="Buscar..." onkeyup="renderizarTabla()">
-                    </div>
-                    <div class="col-md-8 d-flex gap-1">
-                        <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('todos')">Todos</button>
-                        <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('ayer')">Ayer</button>
-                        <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('hoy')">Hoy</button>
-                        <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('semana')">Semana</button>
-                        <button class="btn btn-outline-primary btn-sm w-100" onclick="setFiltroTiempo('mes')">Mes</button>
-                    </div>
-                </div>
+<div id="appContent" class="hidden">
+    <nav class="navbar p-3 mb-4 d-flex justify-content-between">
+        <span class="h5 mb-0">DATATRACK - <span id="txtRol">Rol</span></span>
+        <button class="btn btn-sm btn-light" onclick="logout()">Cerrar Sesión</button>
+    </nav>
 
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Técnico</th>
-                                <th>Placas</th>
-                                <th>Fecha/Hora</th>
-                                <th class="text-center">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tablaServicios"></tbody>
-                    </table>
+    <div class="container-fluid px-4">
+        <div class="row">
+            <div id="colForm" class="col-xl-4 col-lg-5 mb-4 hidden">
+                <div class="card p-4 border-0 shadow-sm">
+                    <h5 class="text-primary mb-3 border-bottom pb-2">Nueva Asignación</h5>
+                    <form id="formServicio">
+                        <input type="hidden" id="editId">
+                        <div class="mb-3">
+                            <label class="small fw-bold">TÉCNICO</label>
+                            <select id="tecnicoSelect" class="form-select" onchange="cargarDatosTecnico()" required>
+                                <option value="">Seleccione...</option>
+                                <option value="Sebastián León">Sebastián León</option>
+                                <option value="Lord Zambrano">Lord Zambrano</option>
+                                <option value="Wilton Posso">Wilton Posso</option>
+                                <option value="Orlando Lara">Orlando Lara</option>
+                            </select>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-8">
+                                <label class="small fw-bold">CLIENTE</label>
+                                <input type="text" id="cliente" class="form-control" required>
+                            </div>
+                            <div class="col-4">
+                                <label class="small fw-bold">CANT.</label>
+                                <input type="number" id="cantPlacas" class="form-control" value="1" min="1" oninput="generarCamposPlacas()">
+                            </div>
+                        </div>
+                        <div id="contenedorPlacas" class="row gx-2 mb-3"></div>
+                        <button type="submit" class="btn btn-primary w-100">GUARDAR ASIGNACIÓN</button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="colTabla" class="col-12">
+                <div class="card p-4 border-0 shadow-sm">
+                    <div class="d-flex justify-content-between mb-3">
+                        <h6>Agenda Nacional</h6>
+                        <input type="text" id="filtroTexto" class="form-control form-control-sm w-50" placeholder="Filtrar..." onkeyup="renderizarTabla()">
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Técnico</th>
+                                    <th>Servicio / Placas</th>
+                                    <th>Horario</th>
+                                    <th class="text-center colAcciones hidden">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaServicios"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -185,4 +107,4 @@
 
 <script src="script.js"></script>
 </body>
-</html>
+</html>v
