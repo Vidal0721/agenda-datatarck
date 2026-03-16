@@ -1,4 +1,4 @@
-// CONFIGURACIÓN OFICIAL DATATRACK
+// CONFIGURACIÓN CORREGIDA (API KEY EXACTA)
 const firebaseConfig = {
     apiKey: "AIzaSyAjh_N7X4nBi6GPnWjxegPX2SKZf7PxW-w",
     authDomain: "agenda-datatrack.firebaseapp.com",
@@ -9,25 +9,24 @@ const firebaseConfig = {
     appId: "1:818633255134:web:f0d7dfe7f5caf8c4607a4f"
 };
 
-// Inicialización
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 
 let esAdmin = false;
 
-// ACCESO
+// LOGIN
 function login() {
     const email = document.getElementById('userEmail').value;
     const pass = document.getElementById('userPass').value;
     auth.signInWithEmailAndPassword(email, pass).catch(err => {
-        alert("Error: Verifica que el usuario exista en la pestaña 'Users' de Firebase.");
+        alert("Error: Revisa tus credenciales en la pestaña Users de Firebase.");
     });
 }
 
 function accesoTecnico() {
     esAdmin = false;
-    mostrarApp("Técnico (Lectura)");
+    activarVistas("Técnico (Sólo Lectura)");
 }
 
 function logout() {
@@ -37,38 +36,41 @@ function logout() {
 auth.onAuthStateChanged(user => {
     if (user) {
         esAdmin = true;
-        mostrarApp("Despachador: " + user.email);
+        activarVistas("Despachador: " + user.email);
     }
 });
 
-function mostrarApp(rol) {
+function activarVistas(rol) {
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('appContent').classList.remove('hidden');
     document.getElementById('txtRol').innerText = rol;
     
     if(!esAdmin) {
         document.getElementById('mainBody').classList.add('modo-tecnico');
-        document.getElementById('panelForm').classList.add('hidden');
-        document.getElementById('panelTabla').className = "col-12";
+        document.getElementById('colForm').classList.add('hidden');
+        document.getElementById('colTabla').className = "col-12";
     }
     cargarDatos();
 }
 
-// DATOS
+// BASE DE DATOS
 function cargarDatos() {
     db.ref('servicios').on('value', snap => {
-        const tabla = document.getElementById('tablaServicios');
-        tabla.innerHTML = '';
+        const tbody = document.getElementById('tablaServicios');
+        tbody.innerHTML = '';
         const data = snap.val();
         for (let id in data) {
             const s = data[id];
-            tabla.innerHTML += `
+            tbody.innerHTML += `
                 <tr>
-                    <td><b>${s.tecnico}</b></td>
-                    <td class="text-placa">${s.placa}</td>
+                    <td><b>${s.tecnico}</b><br><small>${s.ciudad}</small></td>
+                    <td><span class="text-placa">${s.placas}</span><br><small>${s.equipo} - ${s.tarea}</small></td>
                     <td><small>${s.inicio.replace('T', ' ')}</small></td>
                     <td class="solo-admin">
-                        <button onclick="eliminar('${id}')" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
+                        <div class="btn-group gap-1">
+                            <a href="https://wa.me/${s.wsp}" class="btn btn-sm btn-success"><i class="bi bi-whatsapp"></i></a>
+                            <button onclick="eliminar('${id}')" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
+                        </div>
                     </td>
                 </tr>`;
         }
@@ -78,14 +80,34 @@ function cargarDatos() {
 document.getElementById('formServicio').addEventListener('submit', (e) => {
     e.preventDefault();
     const nuevo = {
-        tecnico: document.getElementById('tecnicoSelect').value,
-        placa: document.getElementById('placa').value.toUpperCase(),
-        inicio: document.getElementById('inicio').value
+        asignadoPor: document.getElementById('asignadoPor').value,
+        tecnico: document.getElementById('tecnico').value,
+        wsp: document.getElementById('wsp').value,
+        email: document.getElementById('emailNotif').value,
+        ciudad: document.getElementById('ciudad').value,
+        direccion: document.getElementById('direccion').value,
+        cliente: document.getElementById('cliente').value,
+        placas: document.getElementById('placas').value.toUpperCase(),
+        equipo: document.getElementById('equipo').value,
+        tarea: document.getElementById('tarea').value,
+        obs: document.getElementById('obs').value,
+        inicio: document.getElementById('inicio').value,
+        fin: document.getElementById('fin').value
     };
     db.ref('servicios').push(nuevo);
     e.target.reset();
+    alert("Servicio Sincronizado");
 });
 
 function eliminar(id) {
     if(confirm("¿Eliminar registro?")) db.ref('servicios/' + id).remove();
+}
+
+function exportarExcel() {
+    db.ref('servicios').once('value', snap => {
+        const ws = XLSX.utils.json_to_sheet(Object.values(snap.val()));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Agenda");
+        XLSX.writeFile(wb, "Datatrack_Agenda.xlsx");
+    });
 }
