@@ -40,7 +40,7 @@ window.seleccionarTecnico = (val) => {
 window.login = () => {
     const e = document.getElementById('userEmail').value;
     const p = document.getElementById('userPass').value;
-    auth.signInWithEmailAndPassword(e, p).catch(err => alert("Error: " + err.message));
+    auth.signInWithEmailAndPassword(e, p).catch(err => alert("Error: Credenciales inválidas"));
 };
 
 window.accesoTecnico = () => activarApp("INVITADO");
@@ -49,20 +49,23 @@ window.logout = () => auth.signOut().then(() => location.reload());
 auth.onAuthStateChanged(user => {
     if(user) {
         userLogueado = user.email;
-        esAdmin = !user.email.includes('tecnico');
-        activarApp(esAdmin ? "ADMIN" : "TECNICO");
+        // Si el correo NO contiene la palabra "tecnico", es admin (Vidal o Deivis)
+        esAdmin = !user.email.toLowerCase().includes('tecnico');
+        activarApp(esAdmin ? "ADMINISTRADOR" : "TÉCNICO");
     }
 });
 
 function activarApp(rol) {
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('appContent').classList.remove('hidden');
-    document.getElementById('txtRol').innerText = rol + ": " + (userLogueado || "Lectura");
+    document.getElementById('txtRol').innerText = rol + ": " + (userLogueado ? userLogueado.split('@')[0] : "Lectura");
+    
     if(!esAdmin) {
         document.getElementById('mainBody').classList.add('modo-tecnico');
         document.getElementById('colForm').classList.add('hidden');
         document.getElementById('colTabla').classList.replace('col-md-8', 'col-12');
     }
+    
     db.ref('servicios').on('value', snap => {
         servicios = [];
         snap.forEach(c => { servicios.push({id: c.key, ...c.val()}); });
@@ -72,23 +75,32 @@ function activarApp(rol) {
 
 function renderizar() {
     const tbody = document.getElementById('tablaServicios');
+    const filtro = document.getElementById('filtro').value.toLowerCase();
     tbody.innerHTML = '';
+    
     [...servicios].reverse().forEach(s => {
-        const hI = (s.inicio || "").split('T')[1] || "";
-        tbody.innerHTML += `
-            <tr>
-                <td><b>${s.tecnico}</b><br><small>${s.cliente}</small></td>
-                <td><span class="text-placa">${s.placas || '---'}</span></td>
-                <td><span class="badge ${s.estado==='REALIZADA'?'bg-success':'bg-warning text-dark'}">${s.estado}</span></td>
-                <td class="text-end">
-                    ${esAdmin ? `
-                        <button onclick="editar('${s.id}')" class="btn btn-sm btn-light border"><i class="bi bi-pencil"></i></button>
-                        <button onclick="eliminar('${s.id}')" class="btn btn-sm btn-light border"><i class="bi bi-trash"></i></button>
-                    ` : `
-                        ${s.estado==='PENDIENTE' && userLogueado ? `<button onclick="cerrar('${s.id}')" class="btn btn-sm btn-success">Cerrar</button>` : ''}
-                    `}
-                </td>
-            </tr>`;
+        if((s.tecnico + s.cliente + s.placas).toLowerCase().includes(filtro)) {
+            const hI = (s.inicio || "").split('T')[1] || "00:00";
+            const hF = (s.fin || "").split('T')[1] || "00:00";
+            const esRealizada = s.estado === 'REALIZADA';
+
+            tbody.innerHTML += `
+                <tr>
+                    <td><b>${s.tecnico}</b><br><small class="text-muted">${s.cliente}</small></td>
+                    <td><span class="text-placa">${s.placas || '---'}</span></td>
+                    <td class="small">${hI} - ${hF}<br><span class="badge ${esRealizada ? 'badge-realizada':'badge-pendiente'}">${s.estado}</span></td>
+                    <td>
+                        <div class="btn-group">
+                        ${esAdmin ? `
+                            <button onclick="editar('${s.id}')" class="btn btn-sm btn-light border"><i class="bi bi-pencil text-warning"></i></button>
+                            <button onclick="eliminar('${s.id}')" class="btn btn-sm btn-light border"><i class="bi bi-trash text-danger"></i></button>
+                        ` : `
+                            ${!esRealizada && userLogueado ? `<button onclick="cerrar('${s.id}')" class="btn btn-sm btn-success fw-bold">Cerrar</button>` : ''}
+                        `}
+                        </div>
+                    </td>
+                </tr>`;
+        }
     });
 }
 
@@ -98,12 +110,28 @@ document.getElementById('formServicio').onsubmit = (e) => {
     let tec = document.getElementById('tecnico').value;
     if(tec === "OTRO") tec = document.getElementById('otroNombre').value;
 
+    const inicioNuevo = new Date(document.getElementById('fechaInicio').value).getTime();
+    const finNuevo = new Date(document.getElementById('fechaFin').value).getTime();
+
+    // --- VALIDACIÓN DE CRUCE DE HORARIOS ---
+    const cruce = servicios.find(s => 
+        s.id !== id && 
+        s.tecnico === tec && 
+        s.estado === 'PENDIENTE' &&
+        ((inicioNuevo >= new Date(s.inicio).getTime() && inicioNuevo < new Date(s.fin).getTime()) ||
+         (finNuevo > new Date(s.inicio).getTime() && finNuevo <= new Date(s.fin).getTime()))
+    );
+
+    if(cruce) {
+        alert("¡ERROR DE SOLAPAMIENTO!\n" + tec + " ya tiene un servicio asignado de " + cruce.inicio.split('T')[1] + " a " + cruce.fin.split('T')[1]);
+        return;
+    }
+
     const data = {
         tecnico: tec,
         tel: document.getElementById('telTec').value,
         mail: document.getElementById('emailTec').value,
         cliente: document.getElementById('cliente').value,
-        direccion: document.getElementById('direccion').value,
         inicio: document.getElementById('fechaInicio').value,
         fin: document.getElementById('fechaFin').value,
         placas: document.getElementById('placasTxt').value.toUpperCase(),
@@ -112,21 +140,25 @@ document.getElementById('formServicio').onsubmit = (e) => {
     };
 
     if(id) {
-        db.ref('servicios/' + id).update(data).then(() => { alert("Actualizado"); reset(); });
+        db.ref('servicios/' + id).update(data).then(() => { alert("Servicio Actualizado"); reset(); });
     } else {
-        db.ref('servicios').push(data).then(() => { alert("Guardado"); reset(); });
+        db.ref('servicios').push(data).then(() => { alert("Servicio Guardado con Éxito"); reset(); });
     }
 };
 
 function reset() {
     document.getElementById('formServicio').reset();
     document.getElementById('editId').value = '';
-    document.getElementById('btnGuardar').innerText = "GUARDAR";
+    document.getElementById('btnGuardar').innerText = "GUARDAR ASIGNACIÓN";
 }
 
 window.cerrar = (id) => {
-    if(confirm("¿Confirmar cierre?")) {
-        db.ref('servicios/' + id).update({ estado: 'REALIZADA', cerradoPor: userLogueado, fechaCierre: new Date().toLocaleString() });
+    if(confirm("¿Confirmas que el servicio fue realizado? Se guardará tu firma corporativa.")) {
+        db.ref('servicios/' + id).update({ 
+            estado: 'REALIZADA', 
+            cerradoPor: userLogueado, 
+            fechaCierre: new Date().toLocaleString() 
+        }).then(() => alert("Servicio Cerrado Correctamente"));
     }
 };
 
@@ -137,11 +169,11 @@ window.editar = (id) => {
     seleccionarTecnico(document.getElementById('tecnico').value);
     if(document.getElementById('tecnico').value === "OTRO") document.getElementById('otroNombre').value = s.tecnico;
     document.getElementById('cliente').value = s.cliente;
-    document.getElementById('direccion').value = s.direccion;
     document.getElementById('fechaInicio').value = s.inicio;
     document.getElementById('fechaFin').value = s.fin;
     document.getElementById('placasTxt').value = s.placas;
     document.getElementById('btnGuardar').innerText = "ACTUALIZAR DATOS";
+    window.scrollTo(0,0);
 };
 
-window.eliminar = (id) => { if(confirm("¿Borrar?")) db.ref('servicios/' + id).remove(); };
+window.eliminar = (id) => { if(confirm("¿Seguro que deseas eliminar este registro?")) db.ref('servicios/' + id).remove(); };
