@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Datatrack - Gestión Operativa</title>
+    <title>Datatrack - Agenda</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     
@@ -12,17 +12,14 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
     <style>
-        :root { --dt-blue: #002b5c; --dt-dark: #001a35; }
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        #loginScreen { position: fixed; inset: 0; background: var(--dt-dark); display: flex; align-items: center; justify-content: center; z-index: 2000; }
-        .login-card { background: white; padding: 2.5rem; border-radius: 20px; width: 100%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .navbar { background: var(--dt-blue); color: white; }
-        .card { border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        :root { --dt-blue: #002b5c; }
+        body { background-color: #f0f2f5; font-size: 14px; }
+        .navbar { background: var(--dt-blue); color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .card { border-radius: 12px; border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
         .hidden { display: none !important; }
-        .form-label { font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: #555; margin-bottom: 2px; }
-        .text-placa { background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-weight: bold; border: 1px solid #ffeeba; }
-        .badge-pendiente { background: #ffc107; color: #000; }
-        .badge-realizado { background: #198754; color: #fff; }
+        .text-placa { background: #fff3cd; color: #856404; padding: 2px 5px; border-radius: 4px; font-weight: bold; border: 1px solid #ffeeba; }
+        #loginScreen { position: fixed; inset: 0; background: #001a35; display: flex; align-items: center; justify-content: center; z-index: 2000; }
+        .login-card { background: white; padding: 2rem; border-radius: 15px; width: 100%; max-width: 350px; }
         .modo-tecnico .solo-admin { display: none !important; }
     </style>
 </head>
@@ -30,107 +27,93 @@
 
 <div id="loginScreen">
     <div class="login-card text-center">
-        <h3 class="fw-bold text-primary mb-1">DATATRACK</h3>
-        <p class="text-muted small mb-4">Agenda de Servicios Técnicos</p>
-        <input type="email" id="userEmail" class="form-control mb-2" placeholder="usuario@datatrack.co">
+        <h4 class="fw-bold text-primary">DATATRACK</h4>
+        <input type="email" id="userEmail" class="form-control mb-2" placeholder="Correo">
         <input type="password" id="userPass" class="form-control mb-3" placeholder="Contraseña">
-        <button class="btn btn-primary w-100 mb-3 fw-bold" onclick="login()">INGRESAR</button>
-        <button class="btn btn-outline-secondary btn-sm w-100" onclick="accesoTecnico()">VISTA RÁPIDA</button>
+        <button class="btn btn-primary w-100 mb-2" onclick="login()">Entrar</button>
+        <button class="btn btn-light w-100 btn-sm" onclick="accesoTecnico()">Solo Lectura</button>
     </div>
 </div>
 
 <div id="appContent" class="hidden">
-    <nav class="navbar px-4 py-2 d-flex justify-content-between align-items-center">
-        <span class="fw-bold"><i class="bi bi-truck me-2"></i>OPERACIONES</span>
-        <div class="d-flex align-items-center gap-3">
-            <small id="txtRol" class="badge bg-light text-dark"></small>
+    <nav class="navbar px-3 py-2 d-flex justify-content-between">
+        <span class="fw-bold">DATATRACK OPS</span>
+        <div>
+            <small id="txtRol" class="me-2"></small>
             <button class="btn btn-sm btn-danger" onclick="logout()"><i class="bi bi-power"></i></button>
         </div>
     </nav>
     
-    <div class="container-fluid p-4">
+    <div class="container-fluid p-3">
         <div class="row">
-            <div id="colForm" class="col-xl-4 col-lg-5 mb-4 solo-admin">
-                <div class="card p-4">
-                    <h6 class="fw-bold text-primary mb-3 border-bottom pb-2">NUEVA ASIGNACIÓN</h6>
-                    <form id="formServicio" class="row g-2">
+            <div id="colForm" class="col-md-4 mb-3 solo-admin">
+                <div class="card p-3">
+                    <h6 class="fw-bold border-bottom pb-2">Asignar Servicio</h6>
+                    <form id="formServicio">
                         <input type="hidden" id="editId">
                         
-                        <div class="col-12">
-                            <label class="form-label">Técnico Responsable</label>
-                            <select id="tecnico" class="form-select form-select-sm" onchange="seleccionarTecnico(this.value)" required>
-                                <option value="">Seleccione...</option>
-                                <option value="Sebastián León">Sebastián León</option>
-                                <option value="Orlando Lara">Orlando Lara</option>
-                                <option value="Lord Zambrano">Lord Zambrano</option>
-                                <option value="OTRO">-- OTRO --</option>
-                            </select>
+                        <label class="small fw-bold">Técnico</label>
+                        <select id="tecnico" class="form-select form-select-sm mb-2" onchange="seleccionarTecnico(this.value)" required>
+                            <option value="">Seleccione...</option>
+                            <option value="Sebastián León">Sebastián León</option>
+                            <option value="Orlando Lara">Orlando Lara</option>
+                            <option value="Lord Zambrano">Lord Zambrano</option>
+                            <option value="OTRO">-- OTRO --</option>
+                        </select>
+
+                        <div id="divOtro" class="hidden mb-2">
+                            <input type="text" id="otroNombre" class="form-control form-control-sm" placeholder="Nombre técnico">
                         </div>
 
-                        <div id="divOtro" class="col-12 hidden">
-                            <input type="text" id="otroNombre" class="form-control form-control-sm border-danger" placeholder="Nombre completo del técnico">
-                        </div>
-
-                        <div class="col-6">
-                            <label class="form-label text-muted">Teléfono</label>
-                            <input type="text" id="telTec" class="form-control form-control-sm bg-light" readonly>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label text-muted">Email</label>
-                            <input type="email" id="emailTec" class="form-control form-control-sm bg-light" readonly>
-                        </div>
-
-                        <div class="col-12"><label class="form-label">Cliente / Empresa</label><input type="text" id="cliente" class="form-control form-control-sm" required></div>
-                        <div class="col-12"><label class="form-label">Dirección / Punto</label><input type="text" id="direccion" class="form-control form-control-sm"></div>
-
-                        <div class="col-6">
-                            <label class="form-label">Hora Inicio</label>
-                            <input type="datetime-local" id="fechaInicio" class="form-control form-control-sm" required>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Hora Fin (Estimada)</label>
-                            <input type="datetime-local" id="fechaFin" class="form-control form-control-sm" required>
-                        </div>
-
-                        <div class="col-4">
-                            <label class="form-label">Cantidad Placas</label>
-                            <input type="number" id="cantPlacas" class="form-control form-control-sm" value="1" min="1" onchange="generarInputsPlacas(this.value)">
-                        </div>
-                        <div class="col-8">
-                            <div id="contenedorPlacas" class="mt-3 d-flex flex-wrap gap-1">
-                                <input type="text" class="form-control form-control-sm input-placa" placeholder="Placa 1" style="width: 100px;">
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="small fw-bold">Teléfono</label>
+                                <input type="text" id="telTec" class="form-control form-control-sm" readonly>
+                            </div>
+                            <div class="col-6">
+                                <label class="small fw-bold">Email</label>
+                                <input type="email" id="emailTec" class="form-control form-control-sm" readonly>
                             </div>
                         </div>
 
-                        <div class="col-12">
-                            <label class="form-label">Observaciones</label>
-                            <textarea id="obs" class="form-control form-control-sm" rows="2"></textarea>
+                        <label class="small fw-bold">Cliente</label>
+                        <input type="text" id="cliente" class="form-control form-control-sm mb-2" required>
+
+                        <label class="small fw-bold">Dirección</label>
+                        <input type="text" id="direccion" class="form-control form-control-sm mb-2">
+
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="small fw-bold">Inicio</label>
+                                <input type="datetime-local" id="fechaInicio" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="small fw-bold">Fin</label>
+                                <input type="datetime-local" id="fechaFin" class="form-control form-control-sm" required>
+                            </div>
                         </div>
 
-                        <div class="col-12 mt-3">
-                            <button type="submit" id="btnGuardar" class="btn btn-primary w-100 fw-bold">GUARDAR ASIGNACIÓN</button>
-                        </div>
+                        <label class="small fw-bold">Placas (Separadas por coma)</label>
+                        <input type="text" id="placasTxt" class="form-control form-control-sm mb-3" placeholder="ABC123, DEF456">
+
+                        <button type="submit" id="btnGuardar" class="btn btn-primary w-100 fw-bold">GUARDAR</button>
                     </form>
                 </div>
             </div>
 
-            <div id="colTabla" class="col-xl-8 col-lg-7">
-                <div class="card p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="fw-bold m-0">LISTADO DE SERVICIOS</h6>
-                        <button class="btn btn-success btn-sm solo-admin" onclick="exportarExcel()"><i class="bi bi-file-earmark-excel"></i> Excel</button>
-                    </div>
+            <div id="colTabla" class="col-md-8">
+                <div class="card p-3">
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle border">
-                            <thead class="table-dark small">
+                        <table class="table table-sm table-hover align-middle">
+                            <thead class="table-light">
                                 <tr>
                                     <th>Técnico / Cliente</th>
                                     <th>Placas</th>
-                                    <th class="text-center">Programación</th>
-                                    <th class="text-center">Acciones</th>
+                                    <th>Estado</th>
+                                    <th class="text-end">Acción</th>
                                 </tr>
                             </thead>
-                            <tbody id="tablaServicios" class="small"></tbody>
+                            <tbody id="tablaServicios"></tbody>
                         </table>
                     </div>
                 </div>
@@ -139,20 +122,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalVer" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white p-2">
-                <h6 class="modal-title">Detalles Completos</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-4" id="detalleContenido"></div>
-        </div>
-    </div>
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
