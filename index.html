@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Datatrack - Control Operativo</title>
+    <title>Datatrack - Operaciones</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     
@@ -12,15 +12,23 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
     <style>
-        body { background-color: #001a35; font-family: 'Segoe UI', sans-serif; }
-        #loginScreen { position: fixed; inset: 0; background: #001a35; display: flex; align-items: center; justify-content: center; z-index: 1000; }
-        .login-card { background: #e9ecef; padding: 2rem; border-radius: 20px; width: 100%; max-width: 400px; }
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', sans-serif; }
+        #loginScreen { position: fixed; inset: 0; background: #001a35; display: flex; align-items: center; justify-content: center; z-index: 2000; }
+        .login-card { background: white; padding: 2.5rem; border-radius: 20px; width: 100%; max-width: 400px; box-shadow: 0 15px 35px rgba(0,0,0,0.3); }
         .hidden { display: none !important; }
-        .navbar { background: #002b5c; color: white; }
-        .card { border-radius: 15px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .form-label { font-size: 0.7rem; font-weight: bold; text-transform: uppercase; color: #555; }
-        .text-placa { color: #d63384; font-weight: bold; }
-        /* Control de Roles */
+        
+        .navbar { background: #002b5c; color: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .card { border-radius: 15px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .form-label { font-size: 0.7rem; font-weight: bold; text-transform: uppercase; color: #64748b; }
+        
+        .text-placa { color: #d63384; font-weight: bold; font-family: monospace; font-size: 1.1rem; }
+        .badge-tarea { font-size: 0.65rem; padding: 0.4em 0.8em; border-radius: 10px; }
+        
+        /* Estilos de botones de filtro */
+        .filter-btn-group .btn { font-size: 0.8rem; font-weight: 600; }
+        .btn-check:checked + .btn-outline-primary { background-color: #002b5c; color: white; border-color: #002b5c; }
+
+        /* Roles */
         .modo-tecnico .solo-admin { display: none !important; }
         .modo-tecnico #colTabla { width: 100% !important; flex: 0 0 100% !important; max-width: 100% !important; }
     </style>
@@ -28,39 +36,33 @@
 <body id="mainBody">
 
 <div id="loginScreen">
-    <div class="login-card text-center shadow-lg">
-        <i class="bi bi-truck-flatbed text-primary" style="font-size: 4rem;"></i>
-        <h4 class="fw-bold my-3" style="color: #002b5c;">Control Operativo</h4>
-        <input type="email" id="userEmail" class="form-control mb-2" placeholder="Correo Despachador">
+    <div class="login-card text-center">
+        <i class="bi bi-shield-lock-fill text-primary" style="font-size: 3.5rem;"></i>
+        <h4 class="fw-bold mt-3 mb-4">Panel Datatrack</h4>
+        <input type="email" id="userEmail" class="form-control mb-2" placeholder="Correo corporativo">
         <input type="password" id="userPass" class="form-control mb-3" placeholder="Contraseña">
-        <button class="btn btn-primary w-100 mb-3 fw-bold" onclick="login()">INGRESAR AL PANEL</button>
-        <div class="text-muted small mb-3">O ACCESO DE CAMPO</div>
-        <button class="btn btn-outline-secondary w-100 fw-bold" onclick="accesoTecnico()">ACCESO TÉCNICO (SÓLO LECTURA)</button>
+        <button class="btn btn-primary w-100 mb-3 py-2 fw-bold" onclick="login()">ENTRAR COMO DESPACHADOR</button>
+        <hr>
+        <button class="btn btn-outline-secondary w-100" onclick="accesoTecnico()">ACCESO TÉCNICO (SOLO VISTA)</button>
     </div>
 </div>
 
 <div id="appContent" class="hidden">
-    <nav class="navbar p-3 d-flex justify-content-between shadow">
-        <span class="fw-bold">DATATRACK | <small id="txtRol"></small></span>
-        <button class="btn btn-outline-light btn-sm" onclick="logout()">Cerrar Sesión</button>
+    <nav class="navbar p-3 d-flex justify-content-between align-items-center mb-4">
+        <span class="fw-bold"><i class="bi bi-activity"></i> DATATRACK OPERACIONES | <small id="txtRol" class="fw-light text-info"></small></span>
+        <button class="btn btn-sm btn-outline-light" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Salir</button>
     </nav>
     
-    <div class="container-fluid mt-4 px-4">
+    <div class="container-fluid px-4">
         <div class="row">
             <div id="colForm" class="col-xl-4 col-lg-5 mb-4 solo-admin">
                 <div class="card p-4">
-                    <h5 class="text-primary border-bottom pb-2 mb-3">Asignar Servicio</h5>
+                    <h5 class="text-primary mb-3 border-bottom pb-2">Programar Servicio</h5>
                     <form id="formServicio" class="row g-2">
-                        <div class="col-6">
-                            <label class="form-label">Asignado Por</label>
-                            <select id="asignadoPor" class="form-select form-select-sm">
-                                <option value="Vidal Zambrano">Vidal Zambrano</option>
-                                <option value="Deivis Palencia">Deivis Palencia</option>
-                            </select>
-                        </div>
+                        <input type="hidden" id="editId">
                         <div class="col-6">
                             <label class="form-label">Técnico</label>
-                            <select id="tecnico" class="form-select form-select-sm">
+                            <select id="tecnico" class="form-select form-select-sm" required>
                                 <option value="Sebastián León">Sebastián León</option>
                                 <option value="Lord Zambrano">Lord Zambrano</option>
                                 <option value="Wilton Posso">Wilton Posso</option>
@@ -68,39 +70,27 @@
                             </select>
                         </div>
                         <div class="col-6">
-                            <label class="form-label">WhatsApp</label>
-                            <input type="text" id="wsp" class="form-control form-control-sm" placeholder="573...">
+                            <label class="form-label">Placa(s)</label>
+                            <input type="text" id="placas" class="form-control form-control-sm" placeholder="ABC123" required>
                         </div>
-                        <div class="col-6">
-                            <label class="form-label">Email Notificación</label>
-                            <input type="email" id="emailNotif" class="form-control form-control-sm" placeholder="correo@datatrack.co">
+                        <div class="col-12">
+                            <label class="form-label">Cliente</label>
+                            <input type="text" id="cliente" class="form-control form-control-sm" required>
                         </div>
                         <div class="col-6">
                             <label class="form-label">Ciudad</label>
                             <input type="text" id="ciudad" class="form-control form-control-sm">
                         </div>
                         <div class="col-6">
-                            <label class="form-label">Dirección / Ref</label>
-                            <input type="text" id="direccion" class="form-control form-control-sm">
-                        </div>
-                        <div class="col-8 text-dark">
-                            <label class="form-label">Cliente</label>
-                            <input type="text" id="cliente" class="form-control form-control-sm">
-                        </div>
-                        <div class="col-4">
-                            <label class="form-label">Cant. Placas</label>
-                            <input type="number" id="cant" class="form-control form-control-sm" value="1">
-                        </div>
-                        <div class="col-12">
-                            <input type="text" id="placas" class="form-control form-control-sm" placeholder="PLACA1, PLACA2...">
+                            <label class="form-label">WhatsApp Técnico</label>
+                            <input type="text" id="wsp" class="form-control form-control-sm" placeholder="573...">
                         </div>
                         <div class="col-6">
                             <label class="form-label">Equipo</label>
                             <select id="equipo" class="form-select form-select-sm">
                                 <option value="GPS">GPS</option>
                                 <option value="MDVR">MDVR</option>
-                                <option value="CÁMARA">CÁMARA</option>
-                                <option value="SENSOR COMBUSTIBLE">SENSOR COMBUSTIBLE</option>
+                                <option value="CÁMARAS">CÁMARAS</option>
                             </select>
                         </div>
                         <div class="col-6">
@@ -112,19 +102,11 @@
                             </select>
                         </div>
                         <div class="col-12">
-                            <label class="form-label">Observaciones</label>
-                            <textarea id="obs" class="form-control form-control-sm" rows="2"></textarea>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Inicio</label>
-                            <input type="datetime-local" id="inicio" class="form-control form-control-sm">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Fin Estimado</label>
-                            <input type="datetime-local" id="fin" class="form-control form-control-sm">
+                            <label class="form-label">Inicio Programado</label>
+                            <input type="datetime-local" id="inicio" class="form-control form-control-sm" required>
                         </div>
                         <div class="col-12 mt-3">
-                            <button type="submit" class="btn btn-primary w-100 fw-bold">GUARDAR</button>
+                            <button type="submit" id="btnGuardar" class="btn btn-primary w-100 fw-bold">GUARDAR ASIGNACIÓN</button>
                         </div>
                     </form>
                 </div>
@@ -132,18 +114,40 @@
 
             <div id="colTabla" class="col-xl-8 col-lg-7">
                 <div class="card p-4">
-                    <div class="d-flex justify-content-between mb-3 align-items-center">
-                        <h6 class="fw-bold mb-0">Agenda Datatrack</h6>
-                        <button onclick="exportarExcel()" class="btn btn-success btn-sm solo-admin"><i class="bi bi-file-earmark-excel"></i> Excel</button>
+                    <div class="row mb-3 align-items-center">
+                        <div class="col-md-4">
+                            <h6 class="fw-bold m-0 text-secondary">AGENDA DE SERVICIOS</h6>
+                        </div>
+                        <div class="col-md-8 text-end">
+                            <div class="btn-group filter-btn-group shadow-sm">
+                                <input type="radio" class="btn-check" name="filtroFecha" id="fTodos" checked onclick="setFiltro('todos')">
+                                <label class="btn btn-outline-primary" for="fTodos">Todos</label>
+                                
+                                <input type="radio" class="btn-check" name="filtroFecha" id="fHoy" onclick="setFiltro('hoy')">
+                                <label class="btn btn-outline-primary" for="fHoy">Hoy</label>
+                                
+                                <input type="radio" class="btn-check" name="filtroFecha" id="fSemana" onclick="setFiltro('semana')">
+                                <label class="btn btn-outline-primary" for="fSemana">Semana</label>
+                            </div>
+                            <button onclick="exportarExcel()" class="btn btn-success btn-sm ms-2 solo-admin"><i class="bi bi-file-earmark-excel"></i></button>
+                        </div>
                     </div>
+
+                    <div class="mb-3">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" id="buscador" class="form-control border-start-0" placeholder="Buscar por placa, técnico o cliente..." onkeyup="renderizarTabla()">
+                        </div>
+                    </div>
+
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle small">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>Técnico</th>
-                                    <th>Placas / Tarea</th>
-                                    <th>Horario</th>
-                                    <th class="solo-admin">Acciones</th>
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr class="small text-uppercase text-muted">
+                                    <th>Técnico / Ciudad</th>
+                                    <th>Detalle Vehículo</th>
+                                    <th>Fecha / Hora</th>
+                                    <th class="text-center">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="tablaServicios"></tbody>
@@ -155,7 +159,20 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalVer" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header bg-primary text-white border-0" style="border-radius: 20px 20px 0 0;">
+                <h6 class="modal-title fw-bold"><i class="bi bi-info-circle"></i> Detalles del Servicio</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4" id="detalleContenido"></div>
+        </div>
+    </div>
+</div>
+
 <script src="script.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </body>
 </html>
