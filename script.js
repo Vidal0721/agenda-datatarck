@@ -62,7 +62,6 @@ function escucharDatos() {
 
 window.setFiltro = function(val) { filtroActual = val; renderizarTabla(); };
 
-// --- RENDERIZADO (Con limpieza de placas y botones globales) ---
 window.renderizarTabla = function() {
     const tbody = document.getElementById('tablaServicios');
     const busq = document.getElementById('buscador').value.toLowerCase();
@@ -70,8 +69,9 @@ window.renderizarTabla = function() {
     const hoy = new Date().toISOString().split('T')[0];
     
     servicios.forEach(s => {
+        // Soporte para campos viejos y nuevos
         const placaVisual = s.placas || s.placa || s.vehiculo || "N/A";
-        const fechaS = (s.inicio || "").split('T')[0];
+        const fechaS = (s.inicio || s.fecha || "").split('T')[0];
         
         let pasaFiltro = true;
         if(filtroActual === 'hoy' && fechaS !== hoy) pasaFiltro = false;
@@ -81,16 +81,16 @@ window.renderizarTabla = function() {
             
             tbody.innerHTML += `
                 <tr>
-                    <td><b>${s.tecnico}</b><br><small>${s.ciudad || ''}</small></td>
+                    <td><b>${s.tecnico || 'Sin Técnico'}</b><br><small>${s.ciudad || ''}</small></td>
                     <td><span class="text-placa">${placaVisual}</span></td>
-                    <td><small>${(s.inicio || "").replace('T', ' ')}</small></td>
+                    <td><small>${(s.inicio || s.fecha || "").replace('T', ' ')}</small></td>
                     <td class="text-center">
                         <div class="btn-group gap-1">
                             <button onclick="verDetalles('${s.id}')" class="btn btn-info btn-sm text-white"><i class="bi bi-eye"></i></button>
                             ${esAdmin ? `
                                 <button onclick="editar('${s.id}')" class="btn btn-warning btn-sm text-white"><i class="bi bi-pencil"></i></button>
                                 <button onclick="eliminar('${s.id}')" class="btn btn-danger btn-sm"><i class="bi bi-trash"></i></button>
-                                <a href="https://wa.me/${tel}" target="_blank" class="btn btn-success btn-sm"><i class="bi bi-whatsapp"></i></a>
+                                <a href="https://wa.me/${tel}" target="_blank" class="btn btn-success btn-sm ${tel ? '' : 'disabled'}"><i class="bi bi-whatsapp"></i></a>
                             ` : ''}
                         </div>
                     </td>
@@ -120,7 +120,7 @@ document.getElementById('formServicio').addEventListener('submit', function(e) {
         fin: document.getElementById('fin').value
     };
 
-    if(id) db.ref('servicios/' + id).update(data);
+    if(id) db.ref('servicios/' + id).set(data); // Usamos .set para estandarizar el registro viejo al nuevo formato
     else db.ref('servicios').push(data);
     
     this.reset();
@@ -136,11 +136,12 @@ window.verDetalles = function(id) {
     document.getElementById('detalleContenido').innerHTML = `
         <p><b>Cliente:</b> ${s.cliente || 'N/A'}</p>
         <p><b>Placas:</b> <span class="text-danger fw-bold">${p}</span></p>
-        <p><b>Técnico:</b> ${s.tecnico}</p>
-        <p><b>Tarea:</b> ${s.tarea}</p>
+        <p><b>Técnico:</b> ${s.tecnico || 'N/A'}</p>
+        <p><b>Tarea:</b> ${s.tarea || 'N/A'}</p>
         <p><b>Ubicación:</b> ${s.ciudad || ''} - ${s.direccion || ''}</p>
         <hr>
-        <p><b>Observaciones:</b> ${s.obs || 'Sin obs'}</p>
+        <p><b>Observaciones:</b> ${s.obs || 'Sin observaciones'}</p>
+        <p><small><b>Asignado por:</b> ${s.asignadoPor || 'N/A'}</small></p>
     `;
     const m = new bootstrap.Modal(document.getElementById('modalVer'));
     m.show();
@@ -149,26 +150,28 @@ window.verDetalles = function(id) {
 window.editar = function(id) {
     const s = servicios.find(x => x.id === id);
     if(!s) return;
+
+    // Mapeo inteligente de campos viejos a formulario nuevo
     document.getElementById('editId').value = s.id;
     document.getElementById('asignadoPor').value = s.asignadoPor || 'Vidal Zambrano';
-    document.getElementById('tecnico').value = s.tecnico;
+    document.getElementById('tecnico').value = s.tecnico || 'Sebastián León';
     document.getElementById('wsp').value = s.wsp || '';
-    document.getElementById('emailNotif').value = s.emailNotif || '';
+    document.getElementById('emailNotif').value = s.emailNotif || s.email || '';
     document.getElementById('cliente').value = s.cliente || '';
     document.getElementById('cantPlacas').value = s.cantPlacas || 1;
-    document.getElementById('placas').value = s.placas || s.placa || '';
+    document.getElementById('placas').value = s.placas || s.placa || s.vehiculo || '';
     document.getElementById('ciudad').value = s.ciudad || '';
     document.getElementById('direccion').value = s.direccion || '';
     document.getElementById('equipo').value = s.equipo || 'GPS';
     document.getElementById('tarea').value = s.tarea || 'Instalación';
-    document.getElementById('inicio').value = s.inicio || '';
+    document.getElementById('inicio').value = s.inicio || s.fecha || '';
     document.getElementById('fin').value = s.fin || '';
     document.getElementById('obs').value = s.obs || '';
     
     document.getElementById('btnGuardar').innerText = "ACTUALIZAR REGISTRO";
-    window.scrollTo(0,0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 window.eliminar = function(id) {
-    if(confirm("¿Borrar servicio?")) db.ref('servicios/' + id).remove();
+    if(confirm("¿Borrar servicio definitivamente?")) db.ref('servicios/' + id).remove();
 };
