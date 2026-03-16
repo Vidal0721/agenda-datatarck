@@ -3,150 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Datatrack - Gestión Operativa</title>
+    <title>Datatrack - Control Operativo</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
     <style>
-        body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, sans-serif; }
-        
-        /* PANTALLA DE LOGIN */
-        #loginScreen { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: linear-gradient(135deg, #002b5c 0%, #0056b3 100%); 
-            display: flex; align-items: center; justify-content: center; z-index: 9999; 
-        }
-        .login-card { background: white; padding: 2.5rem; border-radius: 20px; width: 100%; max-width: 400px; box-shadow: 0 15px 35px rgba(0,0,0,0.4); }
-        .logo-login { max-width: 200px; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto; }
-        
-        /* APP LAYOUT */
-        .navbar { background-color: #002b5c; color: white; padding: 1rem; }
+        body { background-color: #001a35; font-family: 'Segoe UI', sans-serif; margin: 0; }
+        #loginScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .login-card { background: #e9ecef; padding: 2rem; border-radius: 20px; width: 100%; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .logo-container { background: #ced4da; border-radius: 15px; padding: 15px; margin-bottom: 20px; display: inline-block; }
         .hidden { display: none !important; }
-        .card { border: none; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .form-label { font-weight: 700; color: #334155; font-size: 0.75rem; text-transform: uppercase; }
-        .text-placa { color: #d63384; font-weight: 800; font-family: 'Courier New', monospace; font-size: 1.1rem; }
-        
-        /* BOTONES ACCIÓN */
-        .btn-wsp { background-color: #25D366; color: white; border: none; }
-        .btn-mail { background-color: #ea4335; color: white; border: none; }
-        
-        /* MODO LECTURA (TÉCNICO) */
+        .navbar { background: #002b5c; color: white; }
+        .text-placa { color: #d63384; font-weight: bold; }
+        .solo-admin { display: table-cell; }
         .modo-tecnico .solo-admin { display: none !important; }
-        .modo-tecnico #panelTabla { width: 100% !important; flex: 0 0 100% !important; max-width: 100% !important; }
     </style>
 </head>
 <body id="mainBody">
 
 <div id="loginScreen">
-    <div class="login-card text-center shadow">
-        <img src="https://img.icons8.com/fluency/96/truck.png" class="logo-login" alt="Logo Datatrack">
-        <h4 class="mb-4 fw-bold" style="color: #002b5c;">Control Operativo</h4>
-        
-        <div id="loginForm">
-            <div class="mb-3 text-start">
-                <label class="form-label">Correo Despachador</label>
-                <input type="email" id="userEmail" class="form-control" placeholder="usuario@datatrack.co">
-            </div>
-            <div class="mb-4 text-start">
-                <label class="form-label">Contraseña</label>
-                <input type="password" id="userPass" class="form-control" placeholder="••••••••">
-            </div>
-            <button class="btn btn-primary w-100 mb-3 py-2 fw-bold" onclick="login()">INGRESAR AL PANEL</button>
-            
-            <div class="d-flex align-items-center my-3">
-                <hr class="flex-grow-1"> <span class="mx-2 text-muted small">O ACCESO DE CAMPO</span> <hr class="flex-grow-1">
-            </div>
-            
-            <button class="btn btn-outline-secondary w-100 py-2" onclick="accesoTecnico()">ACCESO TÉCNICO (SÓLO LECTURA)</button>
+    <div class="login-card text-center">
+        <div class="logo-container">
+            <i class="bi bi-truck-flatbed" style="font-size: 3rem; color: #002b5c;"></i>
         </div>
+        <h4 class="fw-bold mb-4" style="color: #002b5c;">Control Operativo</h4>
+        <input type="email" id="userEmail" class="form-control mb-2" placeholder="Correo Despachador">
+        <input type="password" id="userPass" class="form-control mb-3" placeholder="Contraseña">
+        <button class="btn btn-primary w-100 mb-3 fw-bold" onclick="login()">INGRESAR AL PANEL</button>
+        <div class="text-muted small mb-3">O ACCESO DE CAMPO</div>
+        <button class="btn btn-outline-secondary w-100 fw-bold" onclick="accesoTecnico()">ACCESO TÉCNICO (SÓLO LECTURA)</button>
     </div>
 </div>
 
 <div id="appContent" class="hidden">
-    <nav class="navbar d-flex justify-content-between align-items-center mb-4 px-4">
-        <span class="h5 mb-0 fw-bold"><i class="bi bi-box-seam"></i> DATATRACK | <small id="txtRol" class="fw-light"></small></span>
-        <button class="btn btn-sm btn-outline-light" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Salir</button>
+    <nav class="navbar p-3 d-flex justify-content-between align-items-center">
+        <span class="fw-bold">DATATRACK | <small id="txtRol"></small></span>
+        <button class="btn btn-outline-light btn-sm" onclick="logout()">Cerrar Sesión</button>
     </nav>
-
-    <div class="container-fluid px-4">
+    
+    <div class="container-fluid mt-4 px-4 text-white">
         <div class="row">
-            <div id="panelForm" class="col-xl-4 col-lg-5 mb-4 solo-admin">
-                <div class="card p-4">
-                    <h5 class="text-primary border-bottom pb-2 mb-3">Asignar Servicio</h5>
+            <div id="panelForm" class="col-md-4 mb-4">
+                <div class="card p-3 text-dark">
+                    <h5 class="text-primary border-bottom pb-2">Asignar Servicio</h5>
                     <form id="formServicio">
-                        <input type="hidden" id="editId">
-                        
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Técnico</label>
-                                <select id="tecnicoSelect" class="form-select" onchange="cargarDatosTecnico()" required>
-                                    <option value="">Seleccione...</option>
-                                    <option value="Lord Zambrano">Lord Zambrano</option>
-                                    <option value="Orlando Lara">Orlando Lara</option>
-                                    <option value="Sebastián León">Sebastián León</option>
-                                    <option value="Wilton Posso">Wilton Posso</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Placas</label>
-                                <input type="number" id="cantPlacas" class="form-control" value="1" min="1" oninput="generarCamposPlacas()">
-                            </div>
-                        </div>
-
-                        <div id="contenedorPlacas" class="row gx-2 mb-3"></div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Cliente</label>
-                            <input type="text" id="cliente" class="form-control" required>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-6">
-                                <label class="form-label">Ciudad</label>
-                                <input type="text" id="ubicacion" class="form-control" required>
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label">Equipo</label>
-                                <select id="equipo" class="form-select" required>
-                                    <option value="GPS">GPS</option>
-                                    <option value="MDVR">MDVR</option>
-                                    <option value="CÁMARA">CÁMARA</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="form-label">Fecha y Hora Inicio</label>
-                            <input type="datetime-local" id="inicio" class="form-control" required>
-                        </div>
-
-                        <button type="submit" id="btnSubmit" class="btn btn-primary w-100 fw-bold">SINCRONIZAR AGENDA</button>
+                        <label class="small fw-bold">Técnico</label>
+                        <select id="tecnicoSelect" class="form-select mb-2" required>
+                            <option value="Lord Zambrano">Lord Zambrano</option>
+                            <option value="Orlando Lara">Orlando Lara</option>
+                            <option value="Sebastián León">Sebastián León</option>
+                            <option value="Wilton Posso">Wilton Posso</option>
+                        </select>
+                        <label class="small fw-bold">Placa</label>
+                        <input type="text" id="placa" class="form-control mb-2" placeholder="ABC-123" required>
+                        <label class="small fw-bold">Inicio</label>
+                        <input type="datetime-local" id="inicio" class="form-control mb-3" required>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">GUARDAR</button>
                     </form>
                 </div>
             </div>
-
-            <div id="panelTabla" class="col-xl-8 col-lg-7">
-                <div class="card p-4">
-                    <div class="d-flex justify-content-between mb-3 align-items-center">
-                        <h6 class="fw-bold text-secondary">AGENDA NACIONAL SINCRONIZADA</h6>
-                        <div class="d-flex gap-2">
-                            <input type="text" id="filtroTexto" class="form-control form-control-sm" placeholder="Buscar placa o técnico..." onkeyup="renderizarTabla()">
-                            <button onclick="exportarExcel()" class="btn btn-success btn-sm solo-admin"><i class="bi bi-file-earmark-excel"></i></button>
-                        </div>
-                    </div>
-
+            <div id="panelTabla" class="col-md-8">
+                <div class="card p-3 text-dark">
+                    <h6 class="fw-bold">Agenda Nacional</h6>
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle">
+                        <table class="table align-middle">
                             <thead class="table-dark">
                                 <tr>
                                     <th>Técnico</th>
-                                    <th>Vehículo / Info</th>
-                                    <th>Programación</th>
-                                    <th class="text-center solo-admin">Acciones</th>
+                                    <th>Placa</th>
+                                    <th>Fecha</th>
+                                    <th class="solo-admin">Acción</th>
                                 </tr>
                             </thead>
                             <tbody id="tablaServicios"></tbody>
@@ -159,6 +89,5 @@
 </div>
 
 <script src="script.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </body>
 </html>
