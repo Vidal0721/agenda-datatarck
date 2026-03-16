@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Datatrack - Control Total</title>
+    <title>Datatrack - Gestión Operativa</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     
@@ -48,7 +48,7 @@
     <div class="container-fluid p-3">
         <div class="row">
             <div id="colForm" class="col-md-4 mb-3 solo-admin">
-                <div class="card p-3">
+                <div class="card p-3 shadow-sm">
                     <h6 class="fw-bold text-primary border-bottom pb-2 mb-3">NUEVA ASIGNACIÓN</h6>
                     <form id="formServicio">
                         <input type="hidden" id="editId">
@@ -59,6 +59,7 @@
                             <option value="Sebastián León">Sebastián León</option>
                             <option value="Orlando Lara">Orlando Lara</option>
                             <option value="Lord Zambrano">Lord Zambrano</option>
+                            <option value="Wilton Posso">Wilton Posso</option>
                             <option value="OTRO">-- OTRO --</option>
                         </select>
 
@@ -80,6 +81,9 @@
                         <label class="fw-bold">Cliente</label>
                         <input type="text" id="cliente" class="form-control form-control-sm mb-2" required>
 
+                        <label class="fw-bold text-success">Dirección del Servicio</label>
+                        <input type="text" id="direccion" class="form-control form-control-sm mb-2" placeholder="Ej: Calle 45 # 23-10">
+
                         <div class="row g-2 mb-2">
                             <div class="col-6">
                                 <label class="small fw-bold">Inicio</label>
@@ -92,19 +96,22 @@
                         </div>
 
                         <label class="fw-bold">Placas</label>
-                        <input type="text" id="placasTxt" class="form-control form-control-sm mb-3" placeholder="ABC123, XYZ456">
+                        <input type="text" id="placasTxt" class="form-control form-control-sm mb-2" placeholder="ABC123, XYZ456">
 
-                        <button type="submit" id="btnGuardar" class="btn btn-primary w-100 fw-bold">GUARDAR ASIGNACIÓN</button>
+                        <label class="fw-bold text-secondary">Observaciones</label>
+                        <textarea id="observaciones" class="form-control form-control-sm mb-3" rows="2" placeholder="Detalles adicionales..."></textarea>
+
+                        <button type="submit" id="btnGuardar" class="btn btn-primary w-100 fw-bold shadow-sm">GUARDAR ASIGNACIÓN</button>
                     </form>
                 </div>
             </div>
 
             <div id="colTabla" class="col-md-8">
-                <div class="card p-3">
+                <div class="card p-3 shadow-sm">
                     <div class="d-flex justify-content-between mb-3 align-items-center">
-                        <h6 class="m-0 fw-bold">LISTADO OPERATIVO</h6>
+                        <h6 class="m-0 fw-bold text-primary">LISTADO OPERATIVO</h6>
                         <button class="btn btn-success btn-sm fw-bold solo-admin" onclick="exportarExcel()">
-                            <i class="bi bi-file-earmark-excel me-1"></i> DESCARGAR REPORTE
+                            <i class="bi bi-file-earmark-excel me-1"></i> EXCEL
                         </button>
                     </div>
                     <div class="table-responsive">
@@ -124,6 +131,18 @@
             </div>
         </div>
     </div>
+</div>
+
+<div class="modal fade" id="modalDetalle" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg border-0">
+      <div class="modal-header bg-primary text-white py-2">
+        <h6 class="modal-title fw-bold">Detalle del Servicio</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="bodyDetalle"></div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
