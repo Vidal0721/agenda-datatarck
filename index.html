@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Datatrack - Gestión Operativa</title>
+    <title>Datatrack - Gestión Operativa Nacional</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     
@@ -12,123 +12,126 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
     <style>
-        :root { --dt-blue: #002b5c; }
-        body { background-color: #f4f7f6; font-size: 13px; }
-        .navbar { background: var(--dt-blue); color: white; border-bottom: 3px solid #ffc107; }
-        .card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        :root { --dt-blue: #002b5c; --dt-gold: #ffc107; }
+        body { background-color: #f4f7f6; font-size: 13px; font-family: 'Segoe UI', sans-serif; }
+        .navbar { background: var(--dt-blue); border-bottom: 3px solid var(--dt-gold); color: white; }
+        .card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         .hidden { display: none !important; }
-        .text-placa { background: #fff3cd; color: #856404; padding: 3px 7px; border-radius: 4px; font-weight: bold; border: 1px solid #ffeeba; text-transform: uppercase; }
-        #loginScreen { position: fixed; inset: 0; background: #001a35; display: flex; align-items: center; justify-content: center; z-index: 2000; }
-        .login-card { background: white; padding: 2rem; border-radius: 15px; width: 350px; }
+        .text-placa { background: #fff3cd; color: #856404; padding: 2px 7px; border-radius: 4px; font-weight: bold; border: 1px solid #ffeeba; text-transform: uppercase; }
+        #loginScreen { position: fixed; inset: 0; background: #001a35; display: flex; align-items: center; justify-content: center; z-index: 3000; }
+        .login-card { background: white; padding: 2.5rem; border-radius: 20px; width: 350px; }
         .modo-tecnico .solo-admin { display: none !important; }
         .badge-realizada { background-color: #198754; color: white; }
-        .badge-pendiente { background-color: #ffc107; color: black; }
+        .badge-pendiente { background-color: var(--dt-gold); color: black; }
         .btn-filter.active { background-color: var(--dt-blue); color: white; }
-        /* Estilo para observaciones en tabla */
-        .obs-text { font-style: italic; color: #666; display: block; margin-top: 4px; font-size: 11px; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .modo-tecnico .obs-text { white-space: normal; max-width: 100%; border-left: 2px solid #ddd; padding-left: 5px; }
+        .btn-wa { color: #25D366; border-color: #25D366; }
+        .btn-wa:hover { background-color: #25D366; color: white; }
     </style>
 </head>
 <body id="mainBody">
 
+<audio id="sndNotif" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+
 <div id="loginScreen">
     <div class="login-card text-center shadow-lg">
-        <h4 class="fw-bold text-primary mb-3">DATATRACK OPS</h4>
-        <input type="email" id="userEmail" class="form-control mb-2" placeholder="usuario@datatrack.co">
+        <h4 class="fw-bold text-primary mb-1">DATATRACK</h4>
+        <input type="email" id="userEmail" class="form-control mb-2" placeholder="Correo">
         <input type="password" id="userPass" class="form-control mb-3" placeholder="Contraseña">
-        <button class="btn btn-primary w-100 mb-2 fw-bold" onclick="login()">INGRESAR</button>
+        <button class="btn btn-primary w-100 fw-bold py-2" onclick="login()">INGRESAR</button>
     </div>
 </div>
 
 <div id="appContent" class="hidden">
-    <nav class="navbar px-3 py-2 d-flex justify-content-between">
-        <span class="fw-bold"><i class="bi bi-shield-lock me-2"></i>SISTEMA DE ASIGNACIONES</span>
-        <div class="d-flex align-items-center">
-            <span id="txtRol" class="badge bg-warning text-dark me-2"></span>
-            <button class="btn btn-sm btn-light" onclick="logout()"><i class="bi bi-power text-danger"></i></button>
+    <nav class="navbar px-3 py-2 d-flex justify-content-between align-items-center">
+        <span class="fw-bold"><i class="bi bi-calendar3 me-2"></i>AGENDA DATATRACK</span>
+        <div class="d-flex align-items-center gap-2">
+            <button id="btnNotifyPerm" class="btn btn-sm btn-warning solo-admin" onclick="requestNotifyPermission()"><i class="bi bi-bell-fill"></i></button>
+            <button class="btn btn-sm btn-outline-light solo-admin" onclick="abrirGestionTecnicos()"><i class="bi bi-person-gear"></i> Personal</button>
+            <span id="txtRol" class="badge bg-light text-dark"></span>
+            <button class="btn btn-sm btn-outline-danger border-0" onclick="logout()"><i class="bi bi-power"></i></button>
         </div>
     </nav>
     
     <div class="container-fluid p-3">
         <div class="row mb-3">
-            <div class="col-12">
-                <div class="card p-2 d-flex flex-row flex-wrap gap-2 align-items-center justify-content-between">
-                    <div class="d-flex gap-1">
-                        <button class="btn btn-sm btn-outline-secondary btn-filter active" id="btnFiltroTodos" onclick="setFiltro('TODOS')">Todos</button>
-                        <button class="btn btn-sm btn-outline-warning btn-filter" id="btnFiltroPend" onclick="setFiltro('PENDIENTE')">Pendientes</button>
-                        <button class="btn btn-sm btn-outline-success btn-filter" id="btnFiltroReal" onclick="setFiltro('REALIZADA')">Realizados</button>
-                    </div>
-                    <div class="flex-grow-1 mx-md-3 my-2 my-md-0">
-                        <input type="text" id="busqueda" class="form-control form-control-sm" placeholder="Buscar placa, cliente o técnico..." onkeyup="renderizar()">
-                    </div>
-                    <button class="btn btn-success btn-sm fw-bold solo-admin" onclick="exportarExcel()">
-                        <i class="bi bi-file-earmark-excel me-1"></i> EXCEL
-                    </button>
+            <div class="col-12 card p-2 d-flex flex-row flex-wrap gap-2 align-items-center justify-content-between">
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-secondary btn-filter active" id="btnFiltroTodos" onclick="setFiltro('TODOS')">Todos</button>
+                    <button class="btn btn-sm btn-outline-warning btn-filter" id="btnFiltroPend" onclick="setFiltro('PENDIENTE')">Pendientes</button>
+                    <button class="btn btn-sm btn-outline-success btn-filter" id="btnFiltroReal" onclick="setFiltro('REALIZADA')">Realizados</button>
                 </div>
+                <div class="flex-grow-1 mx-md-3">
+                    <input type="text" id="busqueda" class="form-control form-control-sm" placeholder="Buscar técnico, placa o cliente..." onkeyup="renderizar()">
+                </div>
+                <button class="btn btn-success btn-sm solo-admin fw-bold" onclick="exportarExcel()">EXCEL</button>
             </div>
         </div>
 
         <div class="row">
             <div id="colForm" class="col-md-4 mb-3 solo-admin">
                 <div class="card p-3 shadow-sm">
-                    <h6 class="fw-bold text-primary border-bottom pb-2 mb-3">NUEVA ASIGNACIÓN</h6>
+                    <h6 class="fw-bold text-primary mb-3">ASIGNAR SERVICIO</h6>
                     <form id="formServicio">
                         <input type="hidden" id="editId">
-                        
-                        <label class="fw-bold">Técnico</label>
-                        <select id="tecnico" class="form-select form-select-sm mb-2" onchange="seleccionarTecnico(this.value)" required>
-                            <option value="">Seleccione...</option>
-                            <option value="Sebastián León">Sebastián León</option>
-                            <option value="Orlando Lara">Orlando Lara</option>
-                            <option value="Lord Zambrano">Lord Zambrano</option>
-                            <option value="Wilton Posso">Wilton Posso</option>
-                            <option value="OTRO">-- OTRO --</option>
-                        </select>
-                        <div id="divOtro" class="hidden mb-2">
-                            <input type="text" id="otroNombre" class="form-control form-control-sm border-primary" placeholder="Nombre completo">
-                        </div>
-
-                        <label class="fw-bold">Cliente</label>
+                        <label class="fw-bold small">Técnico</label>
+                        <select id="tecnico" class="form-select form-select-sm mb-2" onchange="seleccionarTecnico(this.value)" required></select>
+                        <input type="hidden" id="telTec">
+                        <label class="fw-bold small">Cliente</label>
                         <input type="text" id="cliente" class="form-control form-control-sm mb-2" required>
-
-                        <label class="fw-bold text-primary">Dirección</label>
+                        <label class="fw-bold small">Dirección</label>
                         <input type="text" id="direccion" class="form-control form-control-sm mb-2">
-
                         <div class="row g-2 mb-2">
-                            <div class="col-6">
-                                <label class="small fw-bold">Inicio</label>
-                                <input type="datetime-local" id="fechaInicio" class="form-control form-control-sm" required>
-                            </div>
-                            <div class="col-6">
-                                <label class="small fw-bold">Fin Estimado</label>
-                                <input type="datetime-local" id="fechaFin" class="form-control form-control-sm" required>
-                            </div>
+                            <div class="col-6"><label class="small fw-bold">Inicio</label><input type="datetime-local" id="fechaInicio" class="form-control form-control-sm" required></div>
+                            <div class="col-6"><label class="small fw-bold">Fin</label><input type="datetime-local" id="fechaFin" class="form-control form-control-sm" required></div>
                         </div>
-
-                        <label class="fw-bold">Placas</label>
+                        <label class="fw-bold small">Placas</label>
                         <input type="text" id="placasTxt" class="form-control form-control-sm mb-2" placeholder="ABC123, XYZ456">
-
-                        <label class="fw-bold text-secondary">Observaciones</label>
-                        <textarea id="observaciones" class="form-control form-control-sm mb-3" rows="2"></textarea>
-
-                        <button type="submit" id="btnGuardar" class="btn btn-primary w-100 fw-bold shadow-sm">GUARDAR ASIGNACIÓN</button>
+                        <label class="fw-bold small">Observaciones</label>
+                        <textarea id="observaciones" class="form-control form-control-sm mb-3" rows="3"></textarea>
+                        <button type="submit" id="btnGuardar" class="btn btn-primary w-100 fw-bold">GUARDAR EN AGENDA</button>
                     </form>
                 </div>
             </div>
-
             <div id="colTabla" class="col-md-8">
                 <div class="card p-3 shadow-sm">
                     <div class="table-responsive">
-                        <table class="table table-sm table-hover border align-middle">
-                            <thead class="table-dark text-center">
+                        <table class="table table-sm table-hover align-middle text-center">
+                            <thead class="table-dark">
                                 <tr>
                                     <th>Técnico / Cliente</th>
                                     <th>Placas</th>
-                                    <th>Fecha / Hora</th>
+                                    <th>Programación</th>
                                     <th>Acción</th>
                                 </tr>
                             </thead>
-                            <tbody id="tablaServicios" class="text-center"></tbody>
+                            <tbody id="tablaServicios"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalTecnicos" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white py-2"><h6 class="modal-title">PERSONAL DATATRACK</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-5 border-end">
+                        <form id="formTecnico">
+                            <input type="hidden" id="editTecId">
+                            <input type="text" id="tecNombre" class="form-control form-control-sm mb-2" placeholder="Nombre" required>
+                            <input type="text" id="tecWhatsApp" class="form-control form-control-sm mb-2" placeholder="WhatsApp" required>
+                            <input type="email" id="tecEmail" class="form-control form-control-sm mb-2" placeholder="Correo" required>
+                            <button type="submit" id="btnSaveTec" class="btn btn-primary btn-sm w-100">GUARDAR TÉCNICO</button>
+                        </form>
+                    </div>
+                    <div class="col-md-7">
+                        <table class="table table-sm small">
+                            <thead><tr><th>Nombre</th><th>WA</th><th>Acción</th></tr></thead>
+                            <tbody id="listaTecnicosBase"></tbody>
                         </table>
                     </div>
                 </div>
@@ -138,15 +141,7 @@
 </div>
 
 <div class="modal fade" id="modalDetalle" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content shadow-lg border-0">
-      <div class="modal-header bg-primary text-white py-2">
-        <h6 class="modal-title fw-bold">Detalles del Servicio</h6>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body" id="bodyDetalle"></div>
-    </div>
-  </div>
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header bg-primary text-white py-2"><h6>DETALLE</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body" id="bodyDetalle"></div></div></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
