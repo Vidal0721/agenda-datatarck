@@ -12,7 +12,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
 
-const CORREOS_ADMIN = ["analista.monitoreo1@datatrack.co", "lider.operaciones@datatrack.co", "analista.operaciones1@datatrack.co","rpalencia@datatrack.co"];
+const CORREOS_ADMIN = ["analista.monitoreo1@datatrack.co", "lider.operaciones@datatrack.co", "analista.operaciones1@datatrack.co"];
 
 let servicios = [];
 let tecnicosDB = [];
