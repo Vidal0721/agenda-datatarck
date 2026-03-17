@@ -12,44 +12,43 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
 
+const CORREOS_ADMIN = ["analista.monitoreo1@datatrack.co", "lider.operaciones@datatrack.co", "analista.operaciones1@datatrack.co","rpalencia@datatrack.co"];
+
 let servicios = [];
+let tecnicosDB = [];
 let esAdmin = false;
 let userLogueado = null;
 let filtroEstado = 'TODOS';
+let primeraCarga = true;
 
-const STAFF = {
-    "Sebastián León": { mail: "tecnico1@datatrack.co", tel: "573135307403" },
-    "Orlando Lara": { mail: "tecnico2@datatrack.co", tel: "573135307403" },
-    "Lord Zambrano": { mail: "lord.tecnico3@datatrack.co", tel: "573135307403" },
-    "Wilton Posso": { mail: "tecnico4@datatrack.co", tel: "573135307403" }
+// NOTIFICACIONES DE NAVEGADOR (RESTABLECIDAS)
+window.requestNotifyPermission = () => {
+    if (!("Notification" in window)) return alert("Este navegador no soporta notificaciones.");
+    Notification.requestPermission().then(p => { 
+        if(p === "granted") alert("✅ Notificaciones activadas correctamente."); 
+    });
 };
 
-window.setFiltro = (estado) => {
-    filtroEstado = estado;
-    document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
-    if(estado === 'TODOS') document.getElementById('btnFiltroTodos').classList.add('active');
-    if(estado === 'PENDIENTE') document.getElementById('btnFiltroPend').classList.add('active');
-    if(estado === 'REALIZADA') document.getElementById('btnFiltroReal').classList.add('active');
-    renderizar();
-};
+function dispararNotificacion(tec, placa) {
+    const audio = document.getElementById('sndNotif');
+    if(audio) { audio.currentTime = 0; audio.play().catch(()=>{}); }
+    if(Notification.permission === "granted") {
+        new Notification("✅ SERVICIO FINALIZADO", { body: `El técnico ${tec} terminó la placa ${placa}` });
+    }
+    alert(`🔔 AVISO: ${tec} terminó placa ${placa}`);
+}
 
-window.seleccionarTecnico = (v) => {
-    const dO = document.getElementById('divOtro'), t = document.getElementById('telTec'), m = document.getElementById('emailTec');
-    if(v === "OTRO") { dO.classList.remove('hidden'); if(t) t.value = ""; if(m) m.value = ""; }
-    else if(STAFF[v]) { dO.classList.add('hidden'); if(t) t.value = STAFF[v].tel; if(m) m.value = STAFF[v].mail; }
-};
-
+// AUTH
 window.login = () => {
     const e = document.getElementById('userEmail').value, p = document.getElementById('userPass').value;
-    auth.signInWithEmailAndPassword(e, p).catch(err => alert("Error de acceso"));
+    auth.signInWithEmailAndPassword(e, p).catch(err => alert("Error: " + err.message));
 };
-
 window.logout = () => auth.signOut().then(() => location.reload());
 
 auth.onAuthStateChanged(user => {
     if(user) {
-        userLogueado = user.email;
-        esAdmin = !user.email.toLowerCase().includes('tecnico');
+        userLogueado = user.email.toLowerCase();
+        esAdmin = CORREOS_ADMIN.includes(userLogueado);
         activarApp();
     }
 });
@@ -57,129 +56,192 @@ auth.onAuthStateChanged(user => {
 function activarApp() {
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('appContent').classList.remove('hidden');
-    document.getElementById('txtRol').innerText = (esAdmin ? "ADM: " : "TEC: ") + userLogueado.split('@')[0];
+    document.getElementById('txtRol').innerText = (esAdmin ? "ADM: " : "TEC: ") + userLogueado.split('@')[0].toUpperCase();
+    
     if(!esAdmin) {
         document.getElementById('mainBody').classList.add('modo-tecnico');
         document.getElementById('colForm').classList.add('hidden');
         document.getElementById('colTabla').className = "col-12";
     }
+
+    db.ref('tecnicos').on('value', snap => {
+        tecnicosDB = []; snap.forEach(c => { tecnicosDB.push({id: c.key, ...c.val()}); });
+        actualizarSelectTecnicos();
+        if(esAdmin) renderListaTecnicos();
+    });
+
     db.ref('servicios').on('value', snap => {
-        servicios = []; snap.forEach(c => { servicios.push({id: c.key, ...c.val()}); });
-        renderizar();
+        let nuevos = []; snap.forEach(c => { nuevos.push({id: c.key, ...c.val()}); });
+        if(esAdmin && !primeraCarga) {
+            nuevos.forEach(ns => {
+                const viejo = servicios.find(vs => vs.id === ns.id);
+                if(viejo && (viejo.estado === 'PENDIENTE' || !viejo.estado) && ns.estado === 'REALIZADA') {
+                    dispararNotificacion(ns.tecnico, ns.placas);
+                }
+            });
+        }
+        servicios = nuevos; renderizar(); primeraCarga = false;
     });
 }
+
+// GESTIÓN PERSONAL
+function actualizarSelectTecnicos() {
+    const sel = document.getElementById('tecnico');
+    if(!sel) return;
+    let html = '<option value="">Seleccione...</option>';
+    tecnicosDB.sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(t => { html += `<option value="${t.nombre}">${t.nombre}</option>`; });
+    sel.innerHTML = html;
+}
+window.seleccionarTecnico = (v) => {
+    const t = tecnicosDB.find(x => x.nombre === v);
+    document.getElementById('telTec').value = t ? t.whatsapp : "";
+};
+window.abrirGestionTecnicos = () => {
+    document.getElementById('formTecnico').reset();
+    document.getElementById('editTecId').value = '';
+    document.getElementById('btnSaveTec').innerText = "GUARDAR TÉCNICO";
+    new bootstrap.Modal(document.getElementById('modalTecnicos')).show();
+};
+document.getElementById('formTecnico').onsubmit = (e) => {
+    e.preventDefault();
+    const id = document.getElementById('editTecId').value;
+    const data = { nombre: document.getElementById('tecNombre').value, whatsapp: document.getElementById('tecWhatsApp').value, email: document.getElementById('tecEmail').value };
+    if(id) db.ref('tecnicos/'+id).update(data); else db.ref('tecnicos').push(data);
+    document.getElementById('formTecnico').reset();
+    document.getElementById('editTecId').value = '';
+    document.getElementById('btnSaveTec').innerText = "GUARDAR TÉCNICO";
+};
+window.editarTec = (id) => {
+    const t = tecnicosDB.find(x => x.id === id);
+    document.getElementById('editTecId').value = t.id;
+    document.getElementById('tecNombre').value = t.nombre;
+    document.getElementById('tecWhatsApp').value = t.whatsapp;
+    document.getElementById('tecEmail').value = t.email;
+    document.getElementById('btnSaveTec').innerText = "ACTUALIZAR TÉCNICO";
+};
+function renderListaTecnicos() {
+    const tbody = document.getElementById('listaTecnicosBase');
+    tbody.innerHTML = '';
+    tecnicosDB.forEach(t => {
+        tbody.innerHTML += `<tr><td>${t.nombre}</td><td>${t.whatsapp}</td><td>
+            <button onclick="editarTec('${t.id}')" class="btn btn-sm text-warning"><i class="bi bi-pencil"></i></button>
+            <button onclick="eliminarTec('${t.id}')" class="btn btn-sm text-danger"><i class="bi bi-trash"></i></button>
+        </td></tr>`;
+    });
+}
+window.eliminarTec = (id) => { if(confirm("¿Eliminar?")) db.ref('tecnicos/'+id).remove(); };
+
+// GESTIÓN SERVICIOS
+window.editar = (id) => {
+    const s = servicios.find(x => x.id === id);
+    document.getElementById('editId').value = s.id;
+    document.getElementById('tecnico').value = s.tecnico || '';
+    seleccionarTecnico(s.tecnico || '');
+    document.getElementById('cliente').value = s.cliente || '';
+    document.getElementById('direccion').value = s.direccion || '';
+    document.getElementById('fechaInicio').value = s.inicio || '';
+    document.getElementById('fechaFin').value = s.fin || '';
+    document.getElementById('placasTxt').value = s.placas || '';
+    document.getElementById('observaciones').value = s.observaciones || '';
+    document.getElementById('btnGuardar').innerText = "ACTUALIZAR SERVICIO";
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+document.getElementById('formServicio').onsubmit = (e) => {
+    e.preventDefault();
+    const id = document.getElementById('editId').value;
+    const data = {
+        tecnico: document.getElementById('tecnico').value, tel: document.getElementById('telTec').value,
+        cliente: document.getElementById('cliente').value, direccion: document.getElementById('direccion').value,
+        inicio: document.getElementById('fechaInicio').value, fin: document.getElementById('fechaFin').value,
+        placas: document.getElementById('placasTxt').value.toUpperCase(),
+        observaciones: document.getElementById('observaciones').value,
+        estado: id ? (servicios.find(x=>x.id===id).estado || 'PENDIENTE') : 'PENDIENTE'
+    };
+    if(id) db.ref('servicios/'+id).update(data).then(()=>reset());
+    else db.ref('servicios').push(data).then(()=>reset());
+};
 
 function renderizar() {
     const tbody = document.getElementById('tablaServicios');
     const busq = document.getElementById('busqueda').value.toLowerCase();
     tbody.innerHTML = '';
-    
     [...servicios].reverse().forEach(s => {
         const est = s.estado || 'PENDIENTE';
-        const fI = (s.inicio || "").split('T')[0] || "---";
-        const hI = (s.inicio || "").split('T')[1] || "00:00";
-        const hF = (s.fin || "").split('T')[1] || "00:00";
-        const real = est === 'REALIZADA';
-
-        const cumpleFiltro = (filtroEstado === 'TODOS' || est === filtroEstado);
-        const cumpleBusq = (s.tecnico + s.cliente + (s.placas||'')).toLowerCase().includes(busq);
-
-        if(cumpleFiltro && cumpleBusq) {
-            tbody.innerHTML += `
-                <tr>
-                    <td class="text-start ps-3">
-                        <b>${s.tecnico}</b><br>
-                        <small class="text-muted">${s.cliente}</small>
-                        <span class="obs-text" title="${s.observaciones || ''}">${s.observaciones ? '📝 ' + s.observaciones : ''}</span>
-                    </td>
-                    <td><span class="text-placa">${s.placas || '---'}</span></td>
-                    <td>
-                        <div class="fw-bold text-primary" style="font-size:11px">${fI}</div>
-                        <div class="small text-muted">${hI} a ${hF}</div>
-                        <span class="badge ${real ? 'badge-realizada':'badge-pendiente'}" style="font-size:9px">${est}</span>
-                    </td>
-                    <td>
-                        <div class="btn-group gap-1">
-                            <button onclick="verDetalle('${s.id}')" class="btn btn-sm btn-outline-primary border" title="Ver"><i class="bi bi-eye"></i></button>
-                            ${esAdmin ? `
-                                <button onclick="editar('${s.id}')" class="btn btn-sm btn-light border"><i class="bi bi-pencil text-warning"></i></button>
-                                ${real ? `<button onclick="reabrir('${s.id}')" class="btn btn-sm btn-light border" title="Reabrir"><i class="bi bi-arrow-counterclockwise text-info"></i></button>` : ""}
-                                <button onclick="eliminar('${s.id}')" class="btn btn-sm btn-light border"><i class="bi bi-trash text-danger"></i></button>
-                            ` : ""}
-                            ${!real ? `<button onclick="cerrar('${s.id}')" class="btn btn-sm btn-success fw-bold px-2">CERRAR</button>` : ""}
-                        </div>
-                    </td>
-                </tr>`;
+        const t_tec = s.tecnico || 'N/A';
+        const t_cli = s.cliente || 'N/A';
+        const t_pla = s.placas || '---';
+        if((filtroEstado==='TODOS'||est===filtroEstado) && (t_tec+t_cli+t_pla).toLowerCase().includes(busq)) {
+            const real = est === 'REALIZADA';
+            tbody.innerHTML += `<tr>
+                <td class="text-start ps-3"><b>${t_tec}</b><br><small>${t_cli}</small></td>
+                <td><span class="text-placa">${t_pla}</span></td>
+                <td><div class="fw-bold text-primary" style="font-size:11px">${(s.inicio||'').replace('T',' ')}</div><span class="badge ${real?'badge-realizada':'badge-pendiente'}">${est}</span></td>
+                <td><div class="btn-group gap-1">
+                    <button onclick="verDetalle('${s.id}')" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></button>
+                    ${esAdmin ? `
+                        <button onclick="notificarWhatsApp('${s.id}')" class="btn btn-sm btn-wa"><i class="bi bi-whatsapp"></i></button>
+                        <button onclick="editar('${s.id}')" class="btn btn-sm btn-light border"><i class="bi bi-pencil text-warning"></i></button>
+                        ${real ? `<button onclick="reabrir('${s.id}')" class="btn btn-sm btn-light border" title="Reabrir"><i class="bi bi-arrow-counterclockwise text-info"></i></button>` : ""}
+                        <button onclick="eliminar('${s.id}')" class="btn btn-sm btn-light border"><i class="bi bi-trash text-danger"></i></button>` 
+                    : ""}
+                    ${!real ? `<button onclick="cerrar('${s.id}')" class="btn btn-sm btn-success fw-bold">CERRAR</button>` : ""}
+                </div></td></tr>`;
         }
     });
 }
 
-document.getElementById('formServicio').onsubmit = (e) => {
-    e.preventDefault();
-    const id = document.getElementById('editId').value;
-    let tec = document.getElementById('tecnico').value;
-    if(tec === "OTRO") tec = document.getElementById('otroNombre').value;
+function reset() { document.getElementById('formServicio').reset(); document.getElementById('editId').value = ''; document.getElementById('btnGuardar').innerText = "GUARDAR EN AGENDA"; }
 
-    const data = {
-        tecnico: tec, cliente: document.getElementById('cliente').value,
-        direccion: document.getElementById('direccion').value || "",
-        inicio: document.getElementById('fechaInicio').value, fin: document.getElementById('fechaFin').value,
-        placas: document.getElementById('placasTxt').value.toUpperCase(), 
-        observaciones: document.getElementById('observaciones').value || "",
-        estado: 'PENDIENTE', timestamp: Date.now()
-    };
+window.notificarWhatsApp = (id) => {
+    const s = servicios.find(x => x.id === id);
+    if (!s) return;
 
-    if(id) db.ref('servicios/' + id).update(data).then(() => { alert("Actualizado"); reset(); });
-    else db.ref('servicios').push(data).then(() => { alert("Guardado"); reset(); });
+    // Formatear el teléfono
+    const telLimpio = (s.tel || '').replace(/\D/g, '');
+    const fono = telLimpio.startsWith('57') ? telLimpio : '57' + telLimpio;
+
+    if (fono.length < 10) return alert("⚠️ El técnico no tiene un número válido.");
+
+    // Preparar los datos con codificación segura para URL
+    const cliente = encodeURIComponent(s.cliente || 'N/A');
+    const placas = encodeURIComponent(s.placas || 'N/A');
+    const direccion = encodeURIComponent(s.direccion || 'N/A');
+    const inicio = encodeURIComponent((s.inicio || '').replace('T', ' '));
+    const fin = encodeURIComponent((s.fin || '').replace('T', ' '));
+    const obs = encodeURIComponent(s.observaciones || 'Sin observaciones.');
+
+    // Construcción del mensaje usando los componentes codificados
+    const msg = `*DATATRACK - NUEVO SERVICIO*%0A%0A` +
+                `*📍 Cliente:* ${cliente}%0A` +
+                `*🚗 Placas:* ${placas}%0A` +
+                `*🏠 Dirección:* ${direccion}%0A%0A` +
+                `*⏰ Inicia:* ${inicio}%0A` +
+                `*🏁 Finaliza:* ${fin}%0A%0A` +
+                `*📝 Observaciones:* ${obs}`;
+
+    window.open(`https://api.whatsapp.com/send?phone=${fono}&text=${msg}`, '_blank');
 };
-
-function reset() { document.getElementById('formServicio').reset(); document.getElementById('editId').value = ''; document.getElementById('btnGuardar').innerText = "GUARDAR ASIGNACIÓN"; }
 
 window.verDetalle = (id) => {
-    const s = servicios.find(x => x.id === id);
-    document.getElementById('bodyDetalle').innerHTML = `
-        <div class="p-2">
-            <p><strong>Cliente:</strong> ${s.cliente}</p>
-            <p class="text-primary"><strong>Dirección:</strong> ${s.direccion || 'No registrada'}</p>
-            <p><strong>Placas:</strong> ${s.placas || '---'}</p>
-            <p><strong>Observaciones:</strong><br><span class="text-muted">${s.observaciones || 'Sin notas'}</span></p>
-            <hr>
-            <small class="text-muted">Estado: ${s.estado || 'PENDIENTE'}</small>
-        </div>`;
+    const s = servicios.find(x=>x.id===id);
+    document.getElementById('bodyDetalle').innerHTML = `<p><strong>Dirección:</strong> ${s.direccion||'N/A'}</p><p><strong>Obs:</strong> ${s.observaciones||'N/A'}</p><hr><small>Cerrado por: ${s.cerradoPor||'Pendiente'}</small>`;
     new bootstrap.Modal(document.getElementById('modalDetalle')).show();
 };
-
-window.reabrir = (id) => { if(confirm("¿Reabrir este servicio?")) db.ref('servicios/' + id).update({ estado: 'PENDIENTE', cerradoPor: null, fechaCierre: null }); };
-
-window.cerrar = (id) => { if(confirm("¿Finalizar servicio?")) db.ref('servicios/' + id).update({ estado: 'REALIZADA', cerradoPor: userLogueado, fechaCierre: new Date().toLocaleString('es-CO') }); };
-
-window.editar = (id) => {
-    const s = servicios.find(x => x.id === id);
-    document.getElementById('editId').value = s.id;
-    document.getElementById('tecnico').value = STAFF[s.tecnico] ? s.tecnico : "OTRO";
-    seleccionarTecnico(document.getElementById('tecnico').value);
-    document.getElementById('cliente').value = s.cliente;
-    document.getElementById('direccion').value = s.direccion || "";
-    document.getElementById('fechaInicio').value = s.inicio;
-    document.getElementById('fechaFin').value = s.fin;
-    document.getElementById('placasTxt').value = s.placas;
-    document.getElementById('observaciones').value = s.observaciones || "";
-    document.getElementById('btnGuardar').innerText = "ACTUALIZAR DATOS";
-    window.scrollTo(0,0);
+window.cerrar = (id) => { if(confirm("¿Cerrar servicio?")) db.ref('servicios/'+id).update({ estado: 'REALIZADA', cerradoPor: userLogueado }); };
+window.reabrir = (id) => { if(confirm("¿Deseas volver a poner este servicio como PENDIENTE?")) db.ref('servicios/'+id).update({ estado: 'PENDIENTE', cerradoPor: null }); };
+window.eliminar = (id) => { if(confirm("¿Borrar permanentemente?")) db.ref('servicios/'+id).remove(); };
+window.setFiltro = (f) => { 
+    filtroEstado = f; 
+    document.querySelectorAll('.btn-filter').forEach(b=>b.classList.remove('active')); 
+    if(f==='TODOS') document.getElementById('btnFiltroTodos').classList.add('active');
+    if(f==='PENDIENTE') document.getElementById('btnFiltroPend').classList.add('active');
+    if(f==='REALIZADA') document.getElementById('btnFiltroReal').classList.add('active');
+    renderizar(); 
 };
-
-window.eliminar = (id) => { if(confirm("¿Borrar?")) db.ref('servicios/' + id).remove(); };
-
 window.exportarExcel = () => {
-    const formatted = servicios.map(s => ({
-        Fecha: (s.inicio||'').split('T')[0],
-        Tecnico: s.tecnico,
-        Cliente: s.cliente,
-        Placas: s.placas,
-        Observaciones: s.observaciones
-    }));
-    const ws = XLSX.utils.json_to_sheet(formatted);
+    const ws = XLSX.utils.json_to_sheet(servicios);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Servicios");
-    XLSX.writeFile(wb, "Agenda_Datatrack.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Agenda");
+    XLSX.writeFile(wb, "Reporte_Datatrack.xlsx");
 };
